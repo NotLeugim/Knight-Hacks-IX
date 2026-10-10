@@ -10,13 +10,16 @@
   "dependencies": {
     "@react-three/drei": "latest",
     "@react-three/fiber": "latest",
+    "@types/leaflet": "^1.9.22",
     "autoprefixer": "latest",
     "framer-motion": "latest",
+    "leaflet": "^1.9.4",
     "lucide-react": "latest",
     "next": "latest",
     "postcss": "latest",
     "react": "latest",
     "react-dom": "latest",
+    "react-leaflet": "^5.0.0",
     "recharts": "latest",
     "tailwindcss": "latest",
     "three": "latest"
