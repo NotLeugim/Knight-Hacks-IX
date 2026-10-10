@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import 'leaflet/dist/leaflet.css';
 import { useTriage } from '@/context/TriageContext';
@@ -190,41 +190,149 @@ const MapContent = dynamic(
       activeFloor,
       onFloorChange,
       waypoints,
+      bounds,
     }: {
       targetWaypointId: string | null;
       activeFloor: FloorSelection;
       onFloorChange: (floor: FloorSelection) => void;
       waypoints: WaypointNode[];
+      bounds: [[number, number], [number, number]];
     }) {
       const map = useMap();
+      const savedOverviewRef = useRef<{ center: [number, number]; zoom: number } | null>(null);
+      const prevWaypointIdRef = useRef<string | null>(null);
+      const isInitialMountRef = useRef<boolean>(true);
 
       useEffect(() => {
-        if (!targetWaypointId) return;
+        const prefersReducedMotion =
+          typeof window !== 'undefined' &&
+          window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-        const normalized = normalizeWaypointId(targetWaypointId);
-        const targetFloor = getFloorForWaypoint(normalized);
+        const computeWaypointsBounds = (): [[number, number], [number, number]] => {
+          if (waypoints.length > 0) {
+            const lats = waypoints.map((w) => w.coords[0]);
+            const lngs = waypoints.map((w) => w.coords[1]);
+            return [
+              [Math.min(...lats), Math.min(...lngs)],
+              [Math.max(...lats), Math.max(...lngs)],
+            ];
+          }
+          return bounds;
+        };
 
-        // Switch floor if necessary and not already in 'all' view
-        if (activeFloor !== 'all') {
-          const expectedFloor: FloorSelection = targetFloor === 1 ? 'floor1' : 'floor2';
-          if (activeFloor !== expectedFloor) {
-            onFloorChange(expectedFloor);
-            return;
+        if (isInitialMountRef.current) {
+          isInitialMountRef.current = false;
+          if (targetWaypointId) {
+            // Mounted with pre-existing selection: do not store overview, directly focus
+            prevWaypointIdRef.current = targetWaypointId;
+            const normalized = normalizeWaypointId(targetWaypointId);
+            const targetFloor = getFloorForWaypoint(normalized);
+
+            if (activeFloor !== 'all') {
+              const expectedFloor: FloorSelection = targetFloor === 1 ? 'floor1' : 'floor2';
+              if (activeFloor !== expectedFloor) {
+                onFloorChange(expectedFloor);
+                return;
+              }
+            }
+
+            const targetWp = waypoints.find(
+              (wp) => normalizeWaypointId(wp.id) === normalized
+            );
+
+            if (targetWp) {
+              map.stop();
+              if (prefersReducedMotion) {
+                map.setView(targetWp.coords, Math.max(map.getZoom(), 0.6));
+              } else {
+                map.flyTo(targetWp.coords, Math.max(map.getZoom(), 0.6), {
+                  duration: 0.7,
+                  easeLinearity: 0.25,
+                });
+              }
+            }
+          }
+          return;
+        }
+
+        const prevId = prevWaypointIdRef.current;
+
+        // Transition: Selection -> Cleared (Escape, background click, chip ✕, etc.)
+        if (prevId && !targetWaypointId) {
+          prevWaypointIdRef.current = null;
+          map.stop();
+
+          if (savedOverviewRef.current) {
+            const { center, zoom } = savedOverviewRef.current;
+            savedOverviewRef.current = null;
+            if (prefersReducedMotion) {
+              map.setView(center, zoom);
+            } else {
+              map.flyTo(center, zoom, {
+                duration: 0.7,
+                easeLinearity: 0.25,
+              });
+            }
+          } else {
+            const targetBounds = computeWaypointsBounds();
+            if (prefersReducedMotion) {
+              map.fitBounds(targetBounds, {
+                paddingTopLeft: [40, 95],
+                paddingBottomRight: [40, 75],
+                animate: false,
+              });
+            } else {
+              map.flyToBounds(targetBounds, {
+                paddingTopLeft: [40, 95],
+                paddingBottomRight: [40, 75],
+                duration: 0.7,
+              });
+            }
+          }
+          return;
+        }
+
+        // Transition: No selection -> Selection OR Selection A -> Selection B
+        if (targetWaypointId) {
+          // Capture overview view ONLY on first selection transition from no selection
+          if (!prevId) {
+            const center = map.getCenter();
+            savedOverviewRef.current = {
+              center: [center.lat, center.lng],
+              zoom: map.getZoom(),
+            };
+          }
+          // If prevId was already active (switching items A -> B), savedOverviewRef is preserved intact!
+          prevWaypointIdRef.current = targetWaypointId;
+
+          const normalized = normalizeWaypointId(targetWaypointId);
+          const targetFloor = getFloorForWaypoint(normalized);
+
+          if (activeFloor !== 'all') {
+            const expectedFloor: FloorSelection = targetFloor === 1 ? 'floor1' : 'floor2';
+            if (activeFloor !== expectedFloor) {
+              onFloorChange(expectedFloor);
+              return;
+            }
+          }
+
+          const targetWp = waypoints.find(
+            (wp) => normalizeWaypointId(wp.id) === normalized
+          );
+
+          if (targetWp) {
+            map.stop();
+            if (prefersReducedMotion) {
+              map.setView(targetWp.coords, Math.max(map.getZoom(), 0.6));
+            } else {
+              map.flyTo(targetWp.coords, Math.max(map.getZoom(), 0.6), {
+                duration: 0.7,
+                easeLinearity: 0.25,
+              });
+            }
           }
         }
-
-        // Find coords in the current active waypoint set
-        const targetWp = waypoints.find(
-          (wp) => normalizeWaypointId(wp.id) === normalized
-        );
-
-        if (targetWp) {
-          map.flyTo(targetWp.coords, Math.max(map.getZoom(), 0.6), {
-            duration: 0.7,
-            easeLinearity: 0.25,
-          });
-        }
-      }, [targetWaypointId, activeFloor, onFloorChange, waypoints, map]);
+      }, [targetWaypointId, activeFloor, onFloorChange, waypoints, bounds, map]);
 
       return null;
     }
@@ -635,6 +743,7 @@ const MapContent = dynamic(
               activeFloor={activeFloor}
               onFloorChange={handleFloorSelect}
               waypoints={activeWaypoints}
+              bounds={floorConfig.bounds}
             />
 
             <TopRightControls

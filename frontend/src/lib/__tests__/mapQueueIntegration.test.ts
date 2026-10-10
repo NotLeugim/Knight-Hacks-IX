@@ -108,3 +108,75 @@ describe('Map <-> Queue Integration Logic', () => {
     assert.equal(reviewRequired.every(a => a.operator_review_required), true);
   });
 });
+
+import {
+  handleWaypointFocusTransition,
+  initialMapZoomState,
+  MapView,
+} from '../mapZoomRestore';
+
+describe('Map Zoom-Restore Overview Controller', () => {
+  const initialOverview: MapView = { center: [500, 642], zoom: 0.1 };
+
+  it('captures map overview view on first selection transition from no selection', () => {
+    const state0 = initialMapZoomState(null);
+    const result1 = handleWaypointFocusTransition(state0, 'WP04', initialOverview);
+
+    assert.equal(result1.action.type, 'ZOOM_IN');
+    if (result1.action.type === 'ZOOM_IN') {
+      assert.equal(result1.action.targetWaypointId, 'WP04');
+    }
+    assert.deepEqual(result1.nextState.savedOverview, initialOverview);
+    assert.equal(result1.nextState.activeWaypointId, 'WP04');
+  });
+
+  it('does NOT overwrite stored overview when selecting item B after item A', () => {
+    const state0 = initialMapZoomState(null);
+    // User selects WP04 from overview
+    const res1 = handleWaypointFocusTransition(state0, 'WP04', initialOverview);
+    assert.deepEqual(res1.nextState.savedOverview, initialOverview);
+
+    // Later, while focused on WP04, camera moved to zoomed in view:
+    const zoomedInView: MapView = { center: [868, 359], zoom: 0.8 };
+
+    // User switches to WP07 directly (item B)
+    const res2 = handleWaypointFocusTransition(res1.nextState, 'WP07', zoomedInView);
+    assert.equal(res2.action.type, 'ZOOM_IN');
+    if (res2.action.type === 'ZOOM_IN') {
+      assert.equal(res2.action.targetWaypointId, 'WP07');
+    }
+    // Stored overview MUST STILL BE initialOverview, NOT zoomedInView!
+    assert.deepEqual(res2.nextState.savedOverview, initialOverview);
+    assert.equal(res2.nextState.activeWaypointId, 'WP07');
+  });
+
+  it('restores the original overview on clear after switching between multiple items', () => {
+    const state0 = initialMapZoomState(null);
+    const res1 = handleWaypointFocusTransition(state0, 'WP04', initialOverview);
+    const intermediateView: MapView = { center: [868, 359], zoom: 0.8 };
+    const res2 = handleWaypointFocusTransition(res1.nextState, 'WP07', intermediateView);
+
+    // Now clear selection (Escape, map background click, chip ✕)
+    const clearResult = handleWaypointFocusTransition(res2.nextState, null, intermediateView);
+    assert.equal(clearResult.action.type, 'RESTORE_OVERVIEW');
+    if (clearResult.action.type === 'RESTORE_OVERVIEW') {
+      assert.deepEqual(clearResult.action.view, initialOverview);
+    }
+    assert.equal(clearResult.nextState.savedOverview, null);
+    assert.equal(clearResult.nextState.activeWaypointId, null);
+  });
+
+  it('falls back to bounds fitting when clearing if component loaded with selection', () => {
+    // Loaded with WP02 already selected, so no stored overview exists
+    const loadedState = initialMapZoomState('WP02');
+    assert.equal(loadedState.savedOverview, null);
+
+    const clearResult = handleWaypointFocusTransition(loadedState, null, {
+      center: [463, 165],
+      zoom: 0.6,
+    });
+    assert.equal(clearResult.action.type, 'FALLBACK_BOUNDS');
+    assert.equal(clearResult.nextState.activeWaypointId, null);
+    assert.equal(clearResult.nextState.savedOverview, null);
+  });
+});
