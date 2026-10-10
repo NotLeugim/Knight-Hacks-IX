@@ -1,0 +1,5 @@
+fastapi
+uvicorn
+pandas
+websockets
+google-generativeai
