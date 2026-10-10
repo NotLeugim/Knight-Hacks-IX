@@ -4,9 +4,9 @@ import React, { useEffect, useState } from 'react';
 import FacilityMap from '../components/3d/FacilityMap';
 import FacilityMap2D from '../components/FacilityMap2D';
 import TriageQueue from '../components/ui/TriageQueue';
-import AIChatDrawer from '../components/ui/AIChatDrawer';
 import { checkHealth } from '../lib/api';
 import { Panel } from '@/components/ui/Panel';
+import { TriageProvider } from '@/context/TriageContext';
 
 export default function Home() {
   const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d');
@@ -17,7 +17,8 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="h-full p-4 sm:p-6 flex flex-col lg:flex-row gap-4 overflow-hidden bg-orbit-bg select-none">
+    <TriageProvider>
+      <div className="h-full p-4 sm:p-6 flex flex-col lg:flex-row gap-4 overflow-hidden bg-orbit-bg select-none">
       {/* ── Left Stage: Facility Map in Orbit Panel ── */}
       <Panel
         id="facility-map-container"
@@ -57,31 +58,21 @@ export default function Home() {
         </div>
       </Panel>
 
-      {/* ── Right Column: Two Separate Panels With 16px Gap ── */}
+      {/* ── Right Column: Triage Queue Sidebar (Full Column Height) ── */}
       <div
         id="right-drawer"
-        className="w-full lg:w-80 xl:w-96 h-full flex flex-col gap-4 shrink-0 overflow-hidden"
+        className="w-full lg:w-80 xl:w-96 h-full flex flex-col shrink-0 overflow-hidden"
       >
-        {/* Panel 1: Gemini AI Assistant (Independently Scrollable) */}
-        <Panel
-          title="Gemini AI Assistant"
-          variant="flush"
-          className="flex-1 min-h-[260px] flex flex-col overflow-hidden"
-          bodyClassName="flex-1 overflow-y-auto pb-4"
-        >
-          <AIChatDrawer />
-        </Panel>
-
-        {/* Panel 2: Triage Queue (Independently Scrollable, never clipped) */}
         <Panel
           title="Triage Queue"
           variant="flush"
-          className="h-72 lg:h-80 shrink-0 flex flex-col overflow-hidden"
+          className="w-full h-full flex-1 flex flex-col overflow-hidden"
           bodyClassName="flex-1 min-h-0 flex flex-col overflow-hidden"
         >
           <TriageQueue />
         </Panel>
       </div>
     </div>
+    </TriageProvider>
   );
 }
