@@ -31,6 +31,7 @@ def get_findings():
 
 # ── Triage ────────────────────────────────────────────────────────────────────
 
+@router.get("/api/triage", tags=["triage"])
 @router.get("/triage", tags=["triage"])
 def get_triage_queue():
     """Returns risk-ranked open issues (severity × criticality × failure rate)."""

@@ -5,6 +5,10 @@
 
 import { AnalyticsResponse } from './analyticsTypes';
 import { analyticsFixture } from './analyticsFixture';
+import { TriageAnomaly, TriageQueueResponse } from './triageTypes';
+import { triageFixture } from './triageFixture';
+
+export * from './triageTypes';
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
@@ -50,8 +54,34 @@ export async function fetchFindings() {
 
 // ── Triage ──────────────────────────────────────────────────────────────────
 
-export async function fetchTriageQueue() {
-  return get<{ queue: unknown[] }>('/triage');
+export async function fetchTriageQueue(): Promise<{
+  queue: TriageAnomaly[];
+  source: 'api' | 'fixture';
+}> {
+  try {
+    // Try /api/triage first; if 404/fails, try legacy /triage
+    let data: TriageQueueResponse;
+    try {
+      data = await get<TriageQueueResponse>('/api/triage');
+    } catch {
+      data = await get<TriageQueueResponse>('/triage');
+    }
+
+    if (Array.isArray(data?.queue) && data.queue.length > 0) {
+      return { queue: data.queue, source: 'api' };
+    }
+
+    console.warn(
+      '[SPOTSight] GET /api/triage returned empty queue or stub. Falling back to local triage fixture.'
+    );
+    return { queue: triageFixture, source: 'fixture' };
+  } catch (err) {
+    console.warn(
+      '[SPOTSight] Failed to fetch /api/triage. Falling back to local triage fixture.',
+      err
+    );
+    return { queue: triageFixture, source: 'fixture' };
+  }
 }
 
 // ── Analytics ───────────────────────────────────────────────────────────────
