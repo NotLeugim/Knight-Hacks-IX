@@ -7,6 +7,7 @@ import TriageQueue from '../components/ui/TriageQueue';
 import AIChatDrawer from '../components/ui/AIChatDrawer';
 import { checkHealth } from '../lib/api';
 import { Panel } from '@/components/ui/Panel';
+import { TriageProvider } from '@/context/TriageContext';
 
 export default function Home() {
   const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d');
@@ -17,7 +18,8 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="h-full p-4 sm:p-6 flex flex-col lg:flex-row gap-4 overflow-hidden bg-orbit-bg select-none">
+    <TriageProvider>
+      <div className="h-full p-4 sm:p-6 flex flex-col lg:flex-row gap-4 overflow-hidden bg-orbit-bg select-none">
       {/* ── Left Stage: Facility Map in Orbit Panel ── */}
       <Panel
         id="facility-map-container"
@@ -83,5 +85,6 @@ export default function Home() {
         </Panel>
       </div>
     </div>
+    </TriageProvider>
   );
 }

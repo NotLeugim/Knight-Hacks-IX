@@ -1,19 +1,30 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
-import { AlertCircle, AlertTriangle, Clock, MapPin, RefreshCw, Cpu } from 'lucide-react';
+import React, { useEffect, useCallback, memo } from 'react';
+import {
+  AlertCircle,
+  AlertTriangle,
+  Clock,
+  MapPin,
+  RefreshCw,
+  Cpu,
+  X,
+  ShieldAlert,
+  Zap,
+  MapPinOff,
+} from 'lucide-react';
 import { TriageAnomaly } from '@/lib/triageTypes';
-import { fetchTriageQueue } from '@/lib/api';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { cn } from '@/lib/utils';
-
 import {
   SEVERITY_CONFIG,
   DEFAULT_SEVERITY_THEME,
   getSeverityTheme,
   SeverityTheme,
 } from '@/lib/severity';
+import { normalizeWaypointId, getAnomalyWaypointId } from '@/lib/triageSelectors';
+import { useTriage } from '@/context/TriageContext';
 
 export {
   SEVERITY_CONFIG,
@@ -22,16 +33,172 @@ export {
   type SeverityTheme,
 };
 
+const KNOWN_MAP_WAYPOINTS = new Set([
+  'WP01',
+  'WP02',
+  'WP03',
+  'WP04',
+  'WP05',
+  'WP06',
+  'WP07',
+  'WP08',
+  'WP09',
+  'WP10',
+  'WP11',
+  'WP12',
+  'WP13',
+  'WP14',
+  'WP15',
+]);
+
 function formatTimestamp(timestampStr?: string): string {
   if (!timestampStr) return '';
   try {
     const date = new Date(timestampStr);
     if (isNaN(date.getTime())) return timestampStr;
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    return date.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
   } catch {
     return timestampStr;
   }
 }
+
+interface AnomalyCardProps {
+  item: TriageAnomaly;
+  index: number;
+  isSelected: boolean;
+  isHovered: boolean;
+  onSelect: (id: string) => void;
+  onHover: (id: string | null) => void;
+}
+
+const AnomalyCard = memo(function AnomalyCard({
+  item,
+  index,
+  isSelected,
+  isHovered,
+  onSelect,
+  onHover,
+}: AnomalyCardProps) {
+  const anomalyId = item.id || item.anomaly_id || `item-${index}`;
+  const theme = getSeverityTheme(item.severity);
+  const normalizedWaypoint = getAnomalyWaypointId(item);
+  const hasMapWaypoint = Boolean(
+    normalizedWaypoint && KNOWN_MAP_WAYPOINTS.has(normalizedWaypoint)
+  );
+
+  return (
+    <li className="w-full">
+      <button
+        type="button"
+        id={`triage-item-${anomalyId.toLowerCase()}`}
+        onClick={() => onSelect(anomalyId)}
+        onMouseEnter={() => onHover(anomalyId)}
+        onMouseLeave={() => onHover(null)}
+        aria-pressed={isSelected}
+        aria-label={`Anomaly ${anomalyId}: ${item.title}. Severity: ${theme.label}. ${
+          hasMapWaypoint ? 'Location ' + normalizedWaypoint : 'Location unavailable'
+        }`}
+        className={cn(
+          'w-full text-left rounded-lg p-2.5 bg-[#2A3036] transition-all',
+          'border border-panel-border border-l-4',
+          theme.cardBorderLeft,
+          'hover:bg-[#313840] hover:border-slate-500/50',
+          'focus:outline-none focus-visible:ring-2 focus-visible:ring-orbit-blue',
+          'cursor-pointer active:scale-[0.99] select-none flex flex-col gap-1.5',
+          isSelected &&
+            'bg-[#2F3740] ring-2 ring-orbit-blue border-panel-border shadow-md',
+          isHovered && !isSelected && 'border-slate-400/60 bg-[#30373E]'
+        )}
+      >
+        {/* Header Row: Rank, Severity Tag, Review Req, Timestamp */}
+        <div className="flex items-center justify-between gap-1.5 text-xs">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="font-mono text-[11px] font-bold text-text-muted shrink-0">
+              #{index + 1}
+            </span>
+            <span
+              className={cn(
+                'text-[10px] font-bold px-1.5 py-0.5 rounded tracking-wider border uppercase shrink-0',
+                theme.textColor,
+                theme.badgeBg,
+                theme.badgeBorder
+              )}
+            >
+              {theme.label}
+            </span>
+            {item.operator_review_required && (
+              <span
+                title="Operator Review Required"
+                className="text-[9px] font-semibold px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0 flex items-center gap-0.5"
+              >
+                <ShieldAlert className="w-2.5 h-2.5 text-amber-300" />
+                REVIEW REQ
+              </span>
+            )}
+          </div>
+
+          {item.timestamp && (
+            <span className="text-[10px] text-text-muted flex items-center gap-1 shrink-0 font-mono">
+              <Clock className="w-2.5 h-2.5" />
+              {formatTimestamp(item.timestamp)}
+            </span>
+          )}
+        </div>
+
+        {/* Title */}
+        <p className="text-xs font-semibold text-white tracking-tight line-clamp-1 leading-snug">
+          {item.title}
+        </p>
+
+        {/* Description */}
+        {item.description && (
+          <p className="text-[11px] text-[#9AA4AD] line-clamp-2 leading-relaxed">
+            {item.description}
+          </p>
+        )}
+
+        {/* Footer Row: Waypoint, Asset, Anomaly Type, ID */}
+        <div className="flex items-center flex-wrap gap-2 pt-0.5 text-[10px] text-text-secondary border-t border-white/5">
+          {hasMapWaypoint ? (
+            <span className="flex items-center gap-0.5 text-blue-400 font-mono">
+              <MapPin className="w-3 h-3 text-blue-400 shrink-0" />
+              {normalizedWaypoint}
+            </span>
+          ) : (
+            <span
+              title="Anomaly location not plotted on floor plan"
+              className="flex items-center gap-0.5 text-slate-500 font-mono text-[9px] bg-slate-800/80 px-1 py-0.2 rounded"
+            >
+              <MapPinOff className="w-2.5 h-2.5 text-slate-500 shrink-0" />
+              Loc. Unavail
+            </span>
+          )}
+
+          {item.asset_id && (
+            <span className="flex items-center gap-0.5 text-slate-300 font-mono">
+              <Cpu className="w-3 h-3 text-slate-400 shrink-0" />
+              {item.asset_id}
+            </span>
+          )}
+
+          {item.anomaly_type && (
+            <span className="text-text-muted truncate max-w-[110px]">
+              {item.anomaly_type.replace(/_/g, ' ')}
+            </span>
+          )}
+
+          <span className="ml-auto font-mono text-[10px] text-text-muted">
+            {anomalyId}
+          </span>
+        </div>
+      </button>
+    </li>
+  );
+});
 
 export interface TriageQueueProps {
   /** Optional callback fired when an anomaly card is clicked */
@@ -45,63 +212,146 @@ export interface TriageQueueProps {
 export default function TriageQueue({
   onSelect,
   className,
-  showHeader = false,
+  showHeader = true,
 }: TriageQueueProps) {
-  const [anomalies, setAnomalies] = useState<TriageAnomaly[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const triage = useTriage();
 
-  const loadTriageQueue = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await fetchTriageQueue();
-      // Preserve backend's ordering — strictly do not re-sort client-side
-      setAnomalies(response.queue ?? []);
-    } catch (err) {
-      console.error('[SPOTSight] Error fetching triage queue:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load triage queue');
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const {
+    filteredAnomalies,
+    anomalies,
+    isLoading,
+    error,
+    selectedWaypointId,
+    selectedAnomalyId,
+    hoveredAnomalyId,
+    hoveredWaypointId,
+    reviewRequiredOnly,
+    selectAnomaly,
+    setHoveredAnomalyId,
+    setReviewRequiredOnly,
+    clearFilter,
+    selectNextCritical,
+    reloadQueue,
+  } = triage;
 
+  // Global Escape key listener to clear waypoint filter
   useEffect(() => {
-    loadTriageQueue();
-  }, [loadTriageQueue]);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && selectedWaypointId) {
+        clearFilter();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedWaypointId, clearFilter]);
 
-  const handleCardClick = (id: string) => {
-    // Pass check: Clicking a queue item logs the anomaly ID to the console.
-    console.log(id);
-    console.log(`[SPOTSight] Anomaly selected in triage queue: ${id}`);
-    setSelectedId(id);
-    onSelect?.(id);
-  };
+  const handleCardClick = useCallback(
+    (id: string) => {
+      // Contract: Logs anomaly ID to console
+      selectAnomaly(id, 'queue');
+      onSelect?.(id);
+    },
+    [selectAnomaly, onSelect]
+  );
 
   return (
     <div
       id="triage-queue-container"
-      className={cn('flex flex-col h-full min-h-0 w-full overflow-hidden select-none', className)}
+      className={cn(
+        'flex flex-col h-full min-h-0 w-full overflow-hidden select-none',
+        className
+      )}
     >
-      {/* Optional sub-bar */}
+      {/* Screen Reader Announcement for Filter Changes */}
+      <div aria-live="polite" className="sr-only">
+        {selectedWaypointId
+          ? `Filtered queue to waypoint ${selectedWaypointId}. ${filteredAnomalies.length} anomalies found.`
+          : `Showing all ${filteredAnomalies.length} open anomalies.`}
+      </div>
+
+      {/* Action Header / Workflow Controls */}
       {showHeader && (
-        <div className="flex items-center justify-between px-3.5 py-2 border-b border-panel-border bg-[#1D2125] shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-white tracking-tight">Active Anomalies</span>
-            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-red-500/20 text-red-400">
-              {anomalies.length}
-            </span>
+        <div className="flex flex-col border-b border-panel-border bg-[#1D2125] shrink-0">
+          {/* Top row: Status, Next Critical button, Refresh */}
+          <div className="flex items-center justify-between px-3.5 py-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-slate-300 tracking-tight">
+                Active Issues
+              </span>
+              <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-red-500/20 text-red-400 font-mono">
+                {filteredAnomalies.length}
+                {filteredAnomalies.length !== anomalies.length && ` / ${anomalies.length}`}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              {/* Operator Workflow: Next Critical Quick Action */}
+              <button
+                type="button"
+                onClick={selectNextCritical}
+                title="Focus next critical anomaly on map"
+                aria-label="Focus next critical anomaly"
+                className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-red-950/70 text-red-300 border border-red-500/40 hover:bg-red-900 transition-colors shadow-xs"
+              >
+                <Zap className="w-3 h-3 text-red-400 fill-red-400" />
+                <span>Next Critical</span>
+              </button>
+
+              {/* Refresh Button */}
+              <button
+                type="button"
+                onClick={reloadQueue}
+                title="Refresh queue"
+                aria-label="Refresh triage queue"
+                className="text-text-muted hover:text-white transition-colors p-1 rounded hover:bg-white/10"
+              >
+                <RefreshCw
+                  className={cn('w-3.5 h-3.5', isLoading && 'animate-spin')}
+                />
+              </button>
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={loadTriageQueue}
-            title="Refresh queue"
-            aria-label="Refresh triage queue"
-            className="text-text-muted hover:text-white transition-colors p-1 rounded hover:bg-white/10"
-          >
-            <RefreshCw className={cn('w-3.5 h-3.5', isLoading && 'animate-spin')} />
-          </button>
+
+          {/* Secondary filter control bar */}
+          <div className="flex items-center justify-between px-3.5 py-1.5 bg-[#171A1D] border-t border-white/5 gap-2 text-xs">
+            {/* Operator Workflow: Review Required Toggle */}
+            <button
+              type="button"
+              onClick={() => setReviewRequiredOnly((prev) => !prev)}
+              aria-pressed={reviewRequiredOnly}
+              className={cn(
+                'flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-colors border',
+                reviewRequiredOnly
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-xs'
+                  : 'bg-transparent text-slate-400 border-slate-700/60 hover:text-slate-200 hover:border-slate-600'
+              )}
+            >
+              <ShieldAlert className="w-3 h-3" />
+              <span>Review Required Only</span>
+            </button>
+
+            {/* Active Waypoint Filter Chip */}
+            {selectedWaypointId && (
+              <div
+                id="waypoint-filter-chip"
+                className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-950/80 border border-blue-500/60 text-blue-300 text-[10px] font-mono animate-fadeIn"
+              >
+                <MapPin className="w-2.5 h-2.5 text-blue-400" />
+                <span>
+                  Showing {selectedWaypointId} ({filteredAnomalies.length})
+                </span>
+                <button
+                  type="button"
+                  onClick={clearFilter}
+                  title="Clear waypoint filter (or press Escape)"
+                  aria-label={`Clear filter for ${selectedWaypointId}`}
+                  className="hover:text-white hover:bg-blue-800/60 rounded-full p-0.5 transition-colors ml-0.5"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -112,7 +362,7 @@ export default function TriageQueue({
         aria-label="Triage Queue Anomaly List"
         className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2.5 focus:outline-none"
       >
-        {/* Loading State: Skeletons */}
+        {/* Loading State */}
         {isLoading && (
           <div className="space-y-2.5">
             {[1, 2, 3, 4].map((i) => (
@@ -142,7 +392,7 @@ export default function TriageQueue({
             <p className="text-xs text-red-200">{error}</p>
             <button
               type="button"
-              onClick={loadTriageQueue}
+              onClick={reloadQueue}
               className="mt-1 px-3 py-1 rounded bg-red-900/60 hover:bg-red-800 text-xs text-white transition-colors"
             >
               Try Again
@@ -150,115 +400,65 @@ export default function TriageQueue({
           </div>
         )}
 
-        {/* Empty State */}
-        {!isLoading && !error && anomalies.length === 0 && (
-          <EmptyState
-            icon={<AlertTriangle className="w-6 h-6 text-status-nominal" />}
-            title="Queue Clear"
-            description="No unresolved anomalies flagged. Fleet telemetry is operating within nominal thresholds."
-            className="py-8"
-          />
-        )}
+        {/* Empty State: Waypoint filter active with 0 results */}
+        {!isLoading &&
+          !error &&
+          filteredAnomalies.length === 0 &&
+          selectedWaypointId && (
+            <div className="py-8 px-4 text-center flex flex-col items-center gap-2">
+              <div className="w-10 h-10 rounded-full bg-slate-800/80 flex items-center justify-center text-blue-400 mb-1">
+                <MapPin className="w-5 h-5" />
+              </div>
+              <h4 className="text-xs font-semibold text-white">
+                No open anomalies at {selectedWaypointId}
+              </h4>
+              <p className="text-[11px] text-text-secondary max-w-xs leading-relaxed">
+                This waypoint is currently operating within nominal baseline parameters.
+              </p>
+              <button
+                type="button"
+                onClick={clearFilter}
+                className="mt-2 px-2.5 py-1 rounded text-xs font-medium text-blue-400 bg-blue-950/50 border border-blue-500/40 hover:bg-blue-900/40 transition-colors"
+              >
+                Clear Waypoint Filter
+              </button>
+            </div>
+          )}
+
+        {/* Empty State: General empty */}
+        {!isLoading &&
+          !error &&
+          filteredAnomalies.length === 0 &&
+          !selectedWaypointId && (
+            <EmptyState
+              icon={<AlertTriangle className="w-6 h-6 text-status-nominal" />}
+              title="Queue Clear"
+              description="No unresolved anomalies flagged. Fleet telemetry is operating within nominal thresholds."
+              className="py-8"
+            />
+          )}
 
         {/* Data List */}
-        {!isLoading && !error && anomalies.length > 0 && (
+        {!isLoading && !error && filteredAnomalies.length > 0 && (
           <ul className="flex flex-col gap-2.5 list-none m-0 p-0">
-            {anomalies.map((item, index) => {
+            {filteredAnomalies.map((item, index) => {
               const anomalyId = item.id || item.anomaly_id || `item-${index}`;
-              const theme = getSeverityTheme(item.severity);
-              const isSelected = selectedId === anomalyId;
+              const isSelected = selectedAnomalyId === anomalyId;
+              const isHovered =
+                hoveredAnomalyId === anomalyId ||
+                (Boolean(hoveredWaypointId) &&
+                  getAnomalyWaypointId(item) === hoveredWaypointId);
 
               return (
-                <li key={anomalyId} className="w-full">
-                  <button
-                    type="button"
-                    id={`triage-item-${anomalyId.toLowerCase()}`}
-                    onClick={() => handleCardClick(anomalyId)}
-                    aria-pressed={isSelected}
-                    className={cn(
-                      'w-full text-left rounded-lg p-2.5 bg-[#2A3036] transition-all',
-                      'border border-panel-border border-l-4',
-                      theme.cardBorderLeft,
-                      'hover:bg-[#313840] hover:border-slate-500/50',
-                      'focus:outline-none focus-visible:ring-2 focus-visible:ring-orbit-blue',
-                      'cursor-pointer active:scale-[0.99] select-none flex flex-col gap-1.5',
-                      isSelected && 'bg-[#2F3740] ring-1 ring-orbit-blue border-panel-border'
-                    )}
-                  >
-                    {/* Header Row: Rank, Severity Tag, Timestamp */}
-                    <div className="flex items-center justify-between gap-1.5 text-xs">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="font-mono text-[11px] font-bold text-text-muted shrink-0">
-                          #{index + 1}
-                        </span>
-                        <span
-                          className={cn(
-                            'text-[10px] font-bold px-1.5 py-0.5 rounded tracking-wider border uppercase shrink-0',
-                            theme.textColor,
-                            theme.badgeBg,
-                            theme.badgeBorder
-                          )}
-                        >
-                          {theme.label}
-                        </span>
-                        {item.operator_review_required && (
-                          <span
-                            title="Operator Review Required"
-                            className="text-[9px] font-semibold px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0"
-                          >
-                            REVIEW REQ
-                          </span>
-                        )}
-                      </div>
-
-                      {item.timestamp && (
-                        <span className="text-[10px] text-text-muted flex items-center gap-1 shrink-0 font-mono">
-                          <Clock className="w-2.5 h-2.5" />
-                          {formatTimestamp(item.timestamp)}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Title */}
-                    <p className="text-xs font-semibold text-white tracking-tight line-clamp-1 leading-snug">
-                      {item.title}
-                    </p>
-
-                    {/* Description */}
-                    {item.description && (
-                      <p className="text-[11px] text-[#9AA4AD] line-clamp-2 leading-relaxed">
-                        {item.description}
-                      </p>
-                    )}
-
-                    {/* Footer Row: Waypoint, Asset, Anomaly Type */}
-                    <div className="flex items-center flex-wrap gap-2 pt-0.5 text-[10px] text-text-secondary border-t border-white/5">
-                      {item.location_id && (
-                        <span className="flex items-center gap-0.5 text-blue-400 font-mono">
-                          <MapPin className="w-3 h-3 text-blue-400 shrink-0" />
-                          {item.location_id}
-                        </span>
-                      )}
-
-                      {item.asset_id && (
-                        <span className="flex items-center gap-0.5 text-slate-300 font-mono">
-                          <Cpu className="w-3 h-3 text-slate-400 shrink-0" />
-                          {item.asset_id}
-                        </span>
-                      )}
-
-                      {item.anomaly_type && (
-                        <span className="text-text-muted truncate max-w-[120px]">
-                          {item.anomaly_type.replace(/_/g, ' ')}
-                        </span>
-                      )}
-
-                      <span className="ml-auto font-mono text-[10px] text-text-muted">
-                        {anomalyId}
-                      </span>
-                    </div>
-                  </button>
-                </li>
+                <AnomalyCard
+                  key={anomalyId}
+                  item={item}
+                  index={index}
+                  isSelected={isSelected}
+                  isHovered={isHovered}
+                  onSelect={handleCardClick}
+                  onHover={setHoveredAnomalyId}
+                />
               );
             })}
           </ul>
