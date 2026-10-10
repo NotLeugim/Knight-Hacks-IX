@@ -12,3 +12,5 @@ export * from './Pill';
 export * from './Tooltip';
 export * from './Skeleton';
 export * from './EmptyState';
+export * from './TriageQueue';
+export { default as TriageQueue } from './TriageQueue';
