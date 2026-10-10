@@ -1,5 +1,7 @@
 import os
+import logging
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api import endpoints
@@ -31,6 +33,27 @@ async def lifespan(app: FastAPI):
     print(f"[SPOTSight] {len(app.state.spot_guides)} guides ready.")
     yield
     # Nothing to clean up — Gemini files expire automatically after 48h
+
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """On startup, create all DB tables if DATABASE_URL is configured."""
+    try:
+        from app.db.database import Base, engine
+        import app.db.models  # noqa: F401 - registers models on Base
+
+        if engine is not None:
+            Base.metadata.create_all(bind=engine)
+            logger.info("Database tables created / verified.")
+        else:
+            logger.warning("Skipping table creation: DATABASE_URL is not configured.")
+    except Exception as exc:
+        logger.error("Error during DB table creation: %s", exc)
+
+    yield
+
 
 app = FastAPI(
     title="SPOTSight Backend API",
