@@ -1,6 +1,9 @@
-from fastapi import APIRouter, HTTPException, Request
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Request, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from app.services.gemini import test_gemini, analyze_anomaly
+from app.services.replay import sse_event_generator, get_replay_file_path
 
 router = APIRouter()
 
@@ -11,6 +14,49 @@ router = APIRouter()
 def health_check():
     """Liveness probe — used by the frontend to verify CORS + connectivity."""
     return {"status": "ok", "message": "Backend connected"}
+
+
+# ── Live Telemetry Stream (SSE) ───────────────────────────────────────────────
+
+@router.get("/api/stream/live", tags=["stream"])
+async def stream_live_events(
+    request: Request,
+    delay: Optional[float] = Query(
+        default=None,
+        description="Delay in seconds between emitted events (defaults to REPLAY_DELAY_SECONDS / 0.10s)",
+    ),
+    loop: bool = Query(
+        default=False,
+        description="Whether to loop the stream when reaching the end of replay.ndjson (defaults to False)",
+    ),
+):
+    """
+    Server-Sent Events (SSE) live replay stream of Spot robot telemetry and mission events.
+
+    Reads replay.ndjson line-by-line via a generator without loading the entire file into memory.
+    Emits events in file order (chronological), each payload exactly matching the original JSON line.
+    MISSION_COMPLETED events are pushed at the end of each run block in their original position.
+    """
+    try:
+        replay_path = get_replay_file_path()
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+    return StreamingResponse(
+        sse_event_generator(
+            file_path=replay_path,
+            delay_seconds=delay,
+            loop=loop,
+            request=request,
+        ),
+        media_type="text/event-stream",
+        headers={
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 # ── Missions ──────────────────────────────────────────────────────────────────

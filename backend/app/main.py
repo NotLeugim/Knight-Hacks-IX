@@ -5,11 +5,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api import endpoints
-from app.services.gemini import upload_guide
+
+logger = logging.getLogger(__name__)
 
 # Paths to the Spot User Guide PDFs provided in the challenge kit
-# main.py lives at: backend/app/main.py
-# PDFs live at:     data/SPOT_KnightHacks_Challenge_Kit Part Two/
 _HERE = os.path.dirname(os.path.abspath(__file__))  # .../backend/app
 GUIDE_DIR = os.path.normpath(os.path.join(_HERE, "..", "..", "data", "SPOT_KnightHacks_Challenge_Kit Part Two"))
 GUIDE_FILES = [
@@ -22,24 +21,10 @@ GUIDE_FILES = [
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Upload all Spot User Guide PDFs once at startup and cache them on app.state."""
-    print("[SPOTSight] Uploading Spot User Guides to Gemini Files API...")
+    """Application lifespan: database initialization and optional Gemini guides upload."""
     app.state.spot_guides = []
-    for filename in GUIDE_FILES:
-        path = os.path.normpath(os.path.join(GUIDE_DIR, filename))
-        file_obj = upload_guide(path)
-        app.state.spot_guides.append(file_obj)
-        print(f"[SPOTSight] Uploaded: {filename} -> {file_obj.uri}")
-    print(f"[SPOTSight] {len(app.state.spot_guides)} guides ready.")
-    yield
-    # Nothing to clean up — Gemini files expire automatically after 48h
 
-logger = logging.getLogger(__name__)
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """On startup, create all DB tables if DATABASE_URL is configured."""
+    # 1. DB initialization if configured
     try:
         from app.db.database import Base, engine
         import app.db.models  # noqa: F401 - registers models on Base
@@ -48,9 +33,24 @@ async def lifespan(app: FastAPI):
             Base.metadata.create_all(bind=engine)
             logger.info("Database tables created / verified.")
         else:
-            logger.warning("Skipping table creation: DATABASE_URL is not configured.")
+            logger.info("Skipping table creation: DATABASE_URL is not configured.")
     except Exception as exc:
-        logger.error("Error during DB table creation: %s", exc)
+        logger.warning("DB table creation skipped or encountered: %s", exc)
+
+    # 2. Upload Spot User Guides to Gemini if API key is present
+    if os.getenv("GEMINI_API_KEY"):
+        try:
+            from app.services.gemini import upload_guide
+            logger.info("[SPOTSight] Uploading Spot User Guides to Gemini Files API...")
+            for filename in GUIDE_FILES:
+                path = os.path.normpath(os.path.join(GUIDE_DIR, filename))
+                if os.path.isfile(path):
+                    file_obj = upload_guide(path)
+                    app.state.spot_guides.append(file_obj)
+                    logger.info("[SPOTSight] Uploaded: %s -> %s", filename, getattr(file_obj, "uri", "ready"))
+            logger.info("[SPOTSight] %d guides ready.", len(app.state.spot_guides))
+        except Exception as exc:
+            logger.warning("[SPOTSight] Could not pre-upload Spot User Guides: %s", exc)
 
     yield
 
@@ -65,7 +65,12 @@ app = FastAPI(
 # Allow the Next.js dev server to call this API without CORS errors
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3001",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

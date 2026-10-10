@@ -33,6 +33,72 @@ export async function checkHealth(): Promise<void> {
   }
 }
 
+// ── Live Telemetry Stream (SSE) ──────────────────────────────────────────────
+
+export type ReplayEventType =
+  | 'MISSION_STARTED'
+  | 'ACTION_STARTED'
+  | 'ACTION_FAILED'
+  | 'ACTION_COMPLETED'
+  | 'MISSION_COMPLETED';
+
+export interface ReplayEvent<TDetails = Record<string, unknown>> {
+  event_id: string;
+  mission_id: string;
+  timestamp: string;
+  event_type: ReplayEventType;
+  details: TDetails;
+}
+
+export interface LiveStreamOptions {
+  delay?: number;
+  loop?: boolean;
+  onEvent: (event: ReplayEvent) => void;
+  onError?: (error: Event) => void;
+  onClose?: () => void;
+}
+
+/**
+ * Subscribes to the /api/stream/live SSE endpoint.
+ * Returns an unsubscribe function to close the connection.
+ */
+export function subscribeLiveStream(options: LiveStreamOptions): () => void {
+  if (typeof window === 'undefined') {
+    return () => {};
+  }
+
+  const params = new URLSearchParams();
+  if (options.delay !== undefined) {
+    params.set('delay', options.delay.toString());
+  }
+  if (options.loop) {
+    params.set('loop', 'true');
+  }
+
+  const queryStr = params.toString() ? `?${params.toString()}` : '';
+  const url = `${API_BASE}/api/stream/live${queryStr}`;
+
+  const eventSource = new EventSource(url);
+
+  eventSource.onmessage = (e) => {
+    try {
+      const data = JSON.parse(e.data) as ReplayEvent;
+      options.onEvent(data);
+    } catch (err) {
+      console.warn('[SPOTSight] Failed to parse SSE event payload:', err);
+    }
+  };
+
+  eventSource.onerror = (err) => {
+    options.onError?.(err);
+  };
+
+  return () => {
+    eventSource.close();
+    options.onClose?.();
+  };
+}
+
 // ── Missions ────────────────────────────────────────────────────────────────
 
 export async function fetchMissionPath(id: string) {

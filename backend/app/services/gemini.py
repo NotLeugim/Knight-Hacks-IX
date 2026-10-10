@@ -6,9 +6,6 @@ from google.genai import types
 # Load the variables from the .env file into the environment
 load_dotenv()
 
-# Initialize the client (it will now successfully find the key)
-client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
-
 # SPOTSight persona applied to all generation requests
 SPOTSIGHT_CONFIG = types.GenerateContentConfig(
     system_instruction=(
@@ -20,14 +17,24 @@ SPOTSIGHT_CONFIG = types.GenerateContentConfig(
 )
 
 
+def get_client() -> genai.Client:
+    """Return a Gemini client or raise a clear error if the API key is missing."""
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise ValueError("GEMINI_API_KEY is not set in the environment or .env file.")
+    return genai.Client(api_key=api_key)
+
+
 def upload_guide(file_path: str):
     """Upload a local PDF to the Gemini File API and return the file object."""
+    client = get_client()
     uploaded_file = client.files.upload(file=file_path)
     return uploaded_file
 
 
 async def test_gemini(prompt: str, uploaded_file=None) -> str:
     """Send a prompt (and optionally an uploaded file) to Gemini and return the response."""
+    client = get_client()
     contents = [prompt]
     if uploaded_file is not None:
         contents.append(uploaded_file)
@@ -42,6 +49,7 @@ async def test_gemini(prompt: str, uploaded_file=None) -> str:
 
 async def analyze_anomaly(payload: dict, document_file) -> str:
     """Format a telemetry payload into a prompt and analyze it against a reference document."""
+    client = get_client()
     prompt = (
         f"Mission ID: {payload['mission_id']}\n"
         f"Battery: {payload['battery_pct']}%\n"
