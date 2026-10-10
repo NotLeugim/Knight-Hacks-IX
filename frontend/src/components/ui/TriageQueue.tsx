@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 
 /**
  * TriageQueue — STUB
@@ -58,6 +59,17 @@ export default function TriageQueue() {
           </li>
         ))}
       </ul>
+
+      {/* Footer Link */}
+      <div className="p-2.5 border-t shrink-0 text-center" style={{ borderColor: 'var(--color-border)' }}>
+        <Link
+          href="/findings"
+          className="text-xs font-medium text-blue-400 hover:text-blue-300 transition-colors inline-flex items-center gap-1"
+        >
+          View Fleet Findings &amp; Analytics →
+        </Link>
+      </div>
     </div>
   );
 }
+

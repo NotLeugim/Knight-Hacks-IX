@@ -1,5 +1,7 @@
 import React from 'react';
 import FindingsChart from '../../components/charts/FindingsChart';
+import { Panel } from '@/components/ui/Panel';
+import { Pill } from '@/components/ui/Pill';
 
 export const metadata = {
   title: 'Findings & Analytics | SPOTSight',
@@ -9,27 +11,19 @@ export const metadata = {
 
 export default function FindingsPage() {
   return (
-    <div className="h-full overflow-auto p-4 sm:p-6 md:p-8">
-      <div className="max-w-6xl mx-auto flex flex-col gap-6">
-        <header className="flex flex-col gap-1">
-          <h1
-            className="text-xl md:text-2xl font-bold"
-            style={{ color: 'var(--color-text-primary)' }}
-          >
-            SPOTSight Analytics Dashboard
-          </h1>
-          <p
-            className="text-sm"
-            style={{ color: 'var(--color-text-muted)' }}
-          >
-            Autonomous inspection reliability analysis and findings metrics
-          </p>
-        </header>
-
-        <main className="w-full">
+    <div className="h-full p-4 sm:p-6 overflow-auto">
+      <Panel
+        title="Fleet Findings & Telemetry Analytics"
+        subtitle="Autonomous inspection reliability curves, battery threshold analysis, and mission paradox metrics"
+        showSubtitle={true}
+        actions={<Pill variant="confidence">TELEMETRY SYNCED</Pill>}
+        className="min-h-full"
+      >
+        <div className="max-w-6xl mx-auto py-2">
           <FindingsChart />
-        </main>
-      </div>
+        </div>
+      </Panel>
     </div>
   );
 }
+
