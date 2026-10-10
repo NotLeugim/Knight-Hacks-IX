@@ -3,6 +3,9 @@
  * Base URL is configured via NEXT_PUBLIC_API_URL env var (falls back to localhost).
  */
 
+import { AnalyticsResponse } from './analyticsTypes';
+import { analyticsFixture } from './analyticsFixture';
+
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
@@ -50,3 +53,32 @@ export async function fetchFindings() {
 export async function fetchTriageQueue() {
   return get<{ queue: unknown[] }>('/triage');
 }
+
+// ── Analytics ───────────────────────────────────────────────────────────────
+
+export async function fetchAnalytics(): Promise<{
+  data: AnalyticsResponse;
+  source: 'api' | 'fixture';
+}> {
+  try {
+    const data = await get<AnalyticsResponse>('/api/analytics');
+    if (
+      Array.isArray(data?.batteryReliability) &&
+      Array.isArray(data?.missionParadox?.missions)
+    ) {
+      return { data, source: 'api' };
+    }
+    console.warn(
+      '[SPOTSight] GET /api/analytics returned invalid shape. Falling back to local fixture.',
+      data
+    );
+    return { data: analyticsFixture, source: 'fixture' };
+  } catch (err) {
+    console.warn(
+      '[SPOTSight] Failed to fetch /api/analytics. Falling back to local fixture.',
+      err
+    );
+    return { data: analyticsFixture, source: 'fixture' };
+  }
+}
+
