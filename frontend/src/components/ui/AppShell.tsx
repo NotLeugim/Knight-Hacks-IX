@@ -12,6 +12,7 @@ import { Pill } from './Pill';
 const NAV_TABS: TabItem[] = [
   { id: '/', label: 'Live Mission' },
   { id: '/anomalies', label: 'Anomalies', badge: 3 },
+  { id: '/findings', label: 'Findings' },
   { id: '/missions', label: 'Missions' },
   { id: '/insights', label: 'Insights' },
 ];
@@ -20,6 +21,7 @@ const ROUTE_TITLES: Record<string, string> = {
   '/': 'Unit #1 Live Mission',
   '/live': 'Unit #1 Live Mission',
   '/anomalies': 'Fleet Anomalies',
+  '/findings': 'Fleet Findings & Analytics',
   '/missions': 'Mission Schedule',
   '/insights': 'Insights',
   '/design-system': 'Design System Specification',
@@ -38,6 +40,8 @@ export function AppShell({ children }: AppShellProps) {
     ? pathname
     : pathname.startsWith('/anomalies')
     ? '/anomalies'
+    : pathname.startsWith('/findings')
+    ? '/findings'
     : pathname.startsWith('/missions')
     ? '/missions'
     : pathname.startsWith('/insights')

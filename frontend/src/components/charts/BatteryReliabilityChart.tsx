@@ -182,7 +182,15 @@ export default function BatteryReliabilityChart({ data }: BatteryReliabilityChar
                 fontWeight: 600,
               }}
             />
-            <Bar dataKey="failureRatePct" name="Failure Rate" radius={[4, 4, 0, 0]}>
+            <Bar
+              dataKey="failureRatePct"
+              name="Failure Rate"
+              radius={[4, 4, 0, 0]}
+              isAnimationActive={true}
+              animationDuration={1200}
+              animationEasing="ease-out"
+              animationBegin={150}
+            >
               {data.map((entry, index) => (
                 <Cell
                   key={`battery-bar-${index}`}
