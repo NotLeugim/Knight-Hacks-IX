@@ -220,6 +220,10 @@ export default function MissionParadoxChart({ data }: MissionParadoxChartProps) 
               stackId="mission"
               name="Actions Succeeded"
               fill={colors.chartSucceeded}
+              isAnimationActive={true}
+              animationDuration={1200}
+              animationEasing="ease-out"
+              animationBegin={150}
             >
               {missions.map((entry) => (
                 <Cell
@@ -236,6 +240,10 @@ export default function MissionParadoxChart({ data }: MissionParadoxChartProps) 
               name="Actions Failed"
               fill={colors.chartFailed}
               radius={[3, 3, 0, 0]}
+              isAnimationActive={true}
+              animationDuration={1200}
+              animationEasing="ease-out"
+              animationBegin={300}
             >
               {missions.map((entry) => (
                 <Cell
