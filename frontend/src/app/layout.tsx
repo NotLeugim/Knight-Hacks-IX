@@ -1,26 +1,27 @@
 import React from 'react';
 import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
 import './globals.css';
+import { AppShell } from '@/components/ui/AppShell';
+
+const inter = Inter({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-inter',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
-  title: 'SPOTSight — NextEra Operator Dashboard',
+  title: 'SPOTSight — Orbit Robot Fleet Management',
   description:
-    'Real-time SPOT robot mission dashboard for non-technical plant operators. Surfaces anomalies, path data, and AI-powered insights.',
+    'Real-time SPOT robot mission dashboard and design system for plant operators. Native Orbit add-on styling.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="h-full">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body className="h-full bg-slate-900 text-white antialiased">
-        {children}
+    <html lang="en" className={`h-full ${inter.variable}`}>
+      <body className="h-full bg-orbit-bg text-text-primary font-sans antialiased overflow-hidden">
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

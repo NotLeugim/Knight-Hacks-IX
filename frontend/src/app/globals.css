@@ -1,18 +1,111 @@
 @import "tailwindcss";
 
-/* ── SPOTSight Design Tokens ── */
+/* ── Orbit Theme Tokens (Tailwind v4) ── */
+@theme {
+  --color-navy: #12335A;
+  --color-navy-dark: #0B223D;
+  --color-navy-light: #1B477D;
+
+  --color-orbit-blue: #3F8FC9;
+  --color-orbit-blue-dark: #2B6EA0;
+  --color-orbit-blue-light: #62A9DB;
+
+  --color-orbit-bg: #101214;
+
+  --color-panel: #23272B;
+  --color-panel-border: #2F353B;
+  --color-panel-header-divider: #343B42;
+
+  --color-row-hover: #2A3036;
+  --color-row-selected: #2F4B66;
+
+  --color-text-primary: #FFFFFF;
+  --color-text-secondary: #9AA4AD;
+  --color-text-muted: #6B747C;
+
+  --color-status-success: #4CC38A;
+  --color-status-nominal: #4CC38A;
+  --color-status-warn: #F5C842;
+  --color-status-critical: #F0716B;
+  --color-status-info: #6BB6E8;
+  --color-status-stopped: #6B747C;
+
+  --color-kpi-1: #2B5FC7;
+  --color-kpi-2: #3F8FC9;
+  --color-kpi-3: #4FA8B8;
+  --color-kpi-4: #8AD6CF;
+  --color-kpi-5: #F6E27A;
+
+  --color-chart-attempted: #6BB6E8;
+  --color-chart-succeeded: #4CC38A;
+  --color-chart-failed: #F0716B;
+  --color-map-waypoint: #3B8FD9;
+
+  --radius-panel: 12px;
+  --radius-button: 8px;
+  --radius-pill: 8px;
+  --radius-tab-container: 10px;
+  --radius-tab-item: 8px;
+
+  --font-sans: var(--font-inter), Inter, system-ui, -apple-system, sans-serif;
+}
+
+/* ── Orbit CSS Variables & Harmonized Tokens ── */
 :root {
-  --color-bg-primary:    #0a0f1e;
-  --color-bg-secondary:  #0f1629;
-  --color-bg-card:       #131d35;
-  --color-border:        #1e2d50;
-  --color-accent:        #3b82f6;
-  --color-accent-dim:    #1d4ed8;
-  --color-success:       #22c55e;
-  --color-warning:       #f59e0b;
-  --color-danger:        #ef4444;
-  --color-text-primary:  #e2e8f0;
-  --color-text-muted:    #64748b;
+  /* Chrome & Navigation */
+  --orbit-navy: #12335A;
+  --orbit-navy-dark: #0B223D;
+  --orbit-navy-light: #1B477D;
+  --orbit-blue: #3F8FC9;
+  --orbit-blue-dark: #2B6EA0;
+  --orbit-blue-light: #62A9DB;
+
+  /* Surfaces & Borders */
+  --orbit-bg: #101214;
+  --orbit-panel: #23272B;
+  --orbit-panel-border: #2F353B;
+  --orbit-panel-header-divider: #343B42;
+  --orbit-row-hover: #2A3036;
+  --orbit-row-selected: #2F4B66;
+
+  /* Typography */
+  --orbit-text-primary: #FFFFFF;
+  --orbit-text-secondary: #9AA4AD;
+  --orbit-text-muted: #6B747C;
+
+  /* Status Colors */
+  --orbit-status-success: #4CC38A;
+  --orbit-status-nominal: #4CC38A;
+  --orbit-status-warn: #F5C842;
+  --orbit-status-critical: #F0716B;
+  --orbit-status-info: #6BB6E8;
+  --orbit-status-stopped: #6B747C;
+
+  /* KPI Accent Bars (Ordered) */
+  --orbit-kpi-1: #2B5FC7;
+  --orbit-kpi-2: #3F8FC9;
+  --orbit-kpi-3: #4FA8B8;
+  --orbit-kpi-4: #8AD6CF;
+  --orbit-kpi-5: #F6E27A;
+
+  /* Chart & Map */
+  --orbit-chart-attempted: #6BB6E8;
+  --orbit-chart-succeeded: #4CC38A;
+  --orbit-chart-failed: #F0716B;
+  --orbit-map-waypoint: #3B8FD9;
+
+  /* Legacy variable mappings for backwards compatibility */
+  --color-bg-primary: #101214;
+  --color-bg-secondary: #23272B;
+  --color-bg-card: #23272B;
+  --color-border: #2F353B;
+  --color-accent: #3F8FC9;
+  --color-accent-dim: #2B6EA0;
+  --color-success: #4CC38A;
+  --color-warning: #F5C842;
+  --color-danger: #F0716B;
+  --color-text-primary: #FFFFFF;
+  --color-text-muted: #9AA4AD;
 }
 
 *, *::before, *::after {
@@ -22,13 +115,24 @@
 html, body {
   height: 100%;
   margin: 0;
-  background-color: var(--color-bg-primary);
-  color: var(--color-text-primary);
-  font-family: 'Inter', system-ui, sans-serif;
+  background-color: var(--orbit-bg);
+  color: var(--orbit-text-primary);
+  font-family: var(--font-inter), Inter, system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
-/* Scrollbar styling */
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: var(--color-bg-primary); }
-::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 2px; }
+/* Orbit Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--orbit-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--orbit-panel-border);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--orbit-text-muted);
+}

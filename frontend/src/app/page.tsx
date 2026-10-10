@@ -5,19 +5,7 @@ import FacilityMap from '../components/3d/FacilityMap';
 import TriageQueue from '../components/ui/TriageQueue';
 import AIChatDrawer from '../components/ui/AIChatDrawer';
 import { checkHealth } from '../lib/api';
-
-// Nav icon placeholder
-function NavIcon({ label, icon }: { label: string; icon: string }) {
-  return (
-    <button
-      id={`nav-${label.toLowerCase().replace(/\s+/g, '-')}`}
-      title={label}
-      className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:text-blue-400 hover:bg-slate-700/60 transition-all duration-200 text-lg"
-    >
-      {icon}
-    </button>
-  );
-}
+import { Panel } from '@/components/ui/Panel';
 
 export default function Home() {
   // Prove CORS is working by calling the backend health endpoint on mount
@@ -26,81 +14,41 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: 'var(--color-bg-primary)' }}>
-
-      {/* ── LEFT: Slim Navigation Sidebar ── */}
-      <nav
-        id="nav-sidebar"
-        className="flex flex-col items-center py-4 gap-3 border-r"
-        style={{
-          width: '64px',
-          background: 'var(--color-bg-secondary)',
-          borderColor: 'var(--color-border)',
-        }}
+    <div className="h-full p-4 sm:p-6 flex flex-col lg:flex-row gap-4 overflow-hidden bg-orbit-bg select-none">
+      {/* ── Left Stage: 3D Facility Map in Orbit Panel ── */}
+      <Panel
+        id="facility-map-container"
+        variant="flush"
+        className="flex-1 h-full min-h-[400px] overflow-hidden"
       >
-        {/* Logo */}
-        <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center font-bold text-sm mb-4 shadow-lg shadow-blue-900/50">
-          SP
-        </div>
+        <FacilityMap />
+      </Panel>
 
-        <NavIcon label="Map View"     icon="🗺️" />
-        <NavIcon label="Findings"     icon="📊" />
-        <NavIcon label="AI Assistant" icon="🤖" />
-
-        {/* Spacer + bottom icon */}
-        <div className="flex-1" />
-        <NavIcon label="Settings" icon="⚙️" />
-      </nav>
-
-      {/* ── CENTER: Main Stage ── */}
-      <main id="main-stage" className="flex-1 flex flex-col overflow-hidden">
-        {/* Top bar */}
-        <header
-          id="top-header"
-          className="flex items-center justify-between px-6 py-3 border-b shrink-0"
-          style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}
-        >
-          <div>
-            <h1 className="text-base font-semibold text-slate-100 leading-none">SPOTSight</h1>
-            <p className="text-xs text-slate-500 mt-0.5">NextEra Operator Dashboard</p>
-          </div>
-          <div className="flex items-center gap-6 text-sm">
-            <span className="text-slate-400">
-              Mission Confidence:{' '}
-              <span className="font-semibold" style={{ color: 'var(--color-success)' }}>
-                92%
-              </span>
-            </span>
-            <span
-              className="px-2 py-1 rounded-full text-xs font-medium"
-              style={{ background: 'rgba(34,197,94,0.15)', color: 'var(--color-success)' }}
-            >
-              ● LIVE
-            </span>
-          </div>
-        </header>
-
-        {/* Map fills remaining space */}
-        <div id="facility-map-container" className="flex-1 overflow-hidden">
-          <FacilityMap />
-        </div>
-      </main>
-
-      {/* ── RIGHT: Smart Drawer ── */}
-      <aside
+      {/* ── Right Column: Two Separate Panels With 16px Gap ── */}
+      <div
         id="right-drawer"
-        className="flex flex-col border-l overflow-hidden shrink-0"
-        style={{
-          width: '320px',
-          background: 'var(--color-bg-secondary)',
-          borderColor: 'var(--color-border)',
-        }}
+        className="w-full lg:w-80 xl:w-96 h-full flex flex-col gap-4 shrink-0 overflow-hidden"
       >
-        <AIChatDrawer />
-        <div className="border-t" style={{ borderColor: 'var(--color-border)' }} />
-        <TriageQueue />
-      </aside>
+        {/* Panel 1: Gemini AI Assistant (Independently Scrollable) */}
+        <Panel
+          title="Gemini AI Assistant"
+          variant="flush"
+          className="flex-1 min-h-[260px] flex flex-col overflow-hidden"
+          bodyClassName="flex-1 overflow-y-auto pb-4"
+        >
+          <AIChatDrawer />
+        </Panel>
 
+        {/* Panel 2: Triage Queue (Independently Scrollable, never clipped) */}
+        <Panel
+          title="Triage Queue"
+          variant="flush"
+          className="h-72 lg:h-80 shrink-0 flex flex-col overflow-hidden"
+          bodyClassName="flex-1 overflow-y-auto pb-4"
+        >
+          <TriageQueue />
+        </Panel>
+      </div>
     </div>
   );
 }
