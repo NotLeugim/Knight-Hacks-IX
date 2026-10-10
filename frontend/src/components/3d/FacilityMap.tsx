@@ -60,15 +60,6 @@ export default function FacilityMap() {
           Floor plan · Waypoint path · Anomaly markers
         </p>
       </div>
-
-      {/* 2D / 3D toggle placeholder */}
-      <div
-        className="absolute bottom-4 right-4 flex gap-2 text-xs"
-        style={{ color: 'var(--color-text-muted)' }}
-      >
-        <button id="map-toggle-2d" className="px-3 py-1 rounded border border-blue-600 text-blue-400 bg-blue-600/10">2D</button>
-        <button id="map-toggle-3d" className="px-3 py-1 rounded border border-slate-600 hover:border-blue-600 transition-colors">3D</button>
-      </div>
     </div>
   );
 }
