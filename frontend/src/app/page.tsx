@@ -2,6 +2,7 @@
 
 import React, { useEffect } from 'react';
 import FacilityMap from '../components/3d/FacilityMap';
+import FacilityMap2D from '../components/FacilityMap2D';
 import TriageQueue from '../components/ui/TriageQueue';
 import AIChatDrawer from '../components/ui/AIChatDrawer';
 import { checkHealth } from '../lib/api';
@@ -20,6 +21,8 @@ function NavIcon({ label, icon }: { label: string; icon: string }) {
 }
 
 export default function Home() {
+  const [viewMode, setViewMode] = React.useState<'2d' | '3d'>('2d');
+
   // Prove CORS is working by calling the backend health endpoint on mount
   useEffect(() => {
     checkHealth();
@@ -81,8 +84,38 @@ export default function Home() {
         </header>
 
         {/* Map fills remaining space */}
-        <div id="facility-map-container" className="flex-1 overflow-hidden">
-          <FacilityMap />
+        <div id="facility-map-container" className="flex-1 overflow-hidden relative">
+          {viewMode === '2d' ? (
+            <FacilityMap2D className="w-full h-full" />
+          ) : (
+            <FacilityMap />
+          )}
+
+          {/* 2D / 3D Switcher */}
+          <div className="absolute bottom-4 right-4 z-[1000] flex gap-1 text-xs bg-slate-900/80 backdrop-blur-md p-1 rounded-lg border border-slate-700/80 shadow-xl">
+            <button
+              id="map-toggle-2d"
+              onClick={() => setViewMode('2d')}
+              className={`px-3 py-1.5 rounded font-medium transition-all ${
+                viewMode === '2d'
+                  ? 'border border-blue-500 text-blue-400 bg-blue-600/20 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              }`}
+            >
+              2D
+            </button>
+            <button
+              id="map-toggle-3d"
+              onClick={() => setViewMode('3d')}
+              className={`px-3 py-1.5 rounded font-medium transition-all ${
+                viewMode === '3d'
+                  ? 'border border-blue-500 text-blue-400 bg-blue-600/20 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              }`}
+            >
+              3D
+            </button>
+          </div>
         </div>
       </main>
 
