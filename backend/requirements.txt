@@ -3,3 +3,6 @@ uvicorn
 pandas
 websockets
 google-generativeai
+sqlalchemy
+psycopg2-binary
+python-dotenv
