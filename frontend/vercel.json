@@ -1,0 +1,17 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://knight-hacks-ix.onrender.com/api/:path*"
+    },
+    {
+      "source": "/missions/:path*",
+      "destination": "https://knight-hacks-ix.onrender.com/missions/:path*"
+    },
+    {
+      "source": "/findings",
+      "destination": "https://knight-hacks-ix.onrender.com/findings"
+    }
+  ]
+}
