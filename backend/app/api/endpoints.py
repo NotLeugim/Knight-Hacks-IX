@@ -77,6 +77,7 @@ def get_findings():
 
 # ── Triage ────────────────────────────────────────────────────────────────────
 
+@router.get("/api/triage", tags=["triage"])
 @router.get("/triage", tags=["triage"])
 def get_triage_queue():
     """Returns risk-ranked open issues (severity × criticality × failure rate)."""
@@ -111,7 +112,10 @@ async def ai_analyze(body: AnomalyRequest, request: Request):
     try:
         # Use the troubleshooting guide (pp. 31-72) — the most relevant section for anomaly diagnosis.
         # Sending all 4 PDFs at once (~40 MB) causes Gemini to hang.
-        guide = request.app.state.spot_guides[3]
+        guides = getattr(request.app.state, "spot_guides", [])
+        if len(guides) < 4:
+            raise HTTPException(status_code=503, detail="Spot User Guides are not loaded (check GEMINI_API_KEY and server logs).")
+        guide = guides[3]
         payload = {
             "mission_id": body.mission_id,
             "battery_pct": body.battery_pct,
@@ -119,5 +123,7 @@ async def ai_analyze(body: AnomalyRequest, request: Request):
         }
         result = await analyze_anomaly(payload, guide)
         return {"mission_id": body.mission_id, "analysis": result}
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))

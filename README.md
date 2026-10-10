@@ -12,6 +12,12 @@ This project is a dashboard that translates Boston Dynamics SPOT robot mission d
 * `backend/`: FastAPI application handling data ingestion, API endpoints, and the Gemini AI agent.
 * `data/`: Extracted challenge kit data.
 
+## Assumptions
+* The provided dataset in `data/` is synthetic and representative of the data expected in production.
+* Path reconstruction relies on the sequence of waypoints provided in the replay events.
+* The Confidence Score starts at 100 and deducts points based on severity of anomalies and asset criticality.
+* The system is designed to scale: the sliding window logic and data storage can transition to TimescaleDB for production volumes.
+
 ## Replay Streamer (Simulated Live Feed)
 
 The live telemetry streamer replays recorded mission telemetry and robot events from `replay.ndjson` to simulate real-time fleet operations.
