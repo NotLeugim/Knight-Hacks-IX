@@ -1,5 +1,7 @@
-fastapi
 uvicorn
 pandas
 websockets
-google-generativeai
+google-genai
+sqlalchemy
+psycopg2-binary
+python-dotenv
