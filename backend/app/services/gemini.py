@@ -6,8 +6,19 @@ from google.genai import types
 # Load the variables from the .env file into the environment
 load_dotenv()
 
-# Initialize the client (it will now successfully find the key)
-client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+# The client is created on first use so the server can still start without a GEMINI_API_KEY.
+_client = None
+
+
+def get_client() -> genai.Client:
+    """Return the shared Gemini client, creating it on first use."""
+    global _client
+    if _client is None:
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            raise RuntimeError("GEMINI_API_KEY is not set in backend/.env")
+        _client = genai.Client(api_key=api_key)
+    return _client
 
 # SPOTSight persona applied to all generation requests
 SPOTSIGHT_CONFIG = types.GenerateContentConfig(
@@ -22,7 +33,7 @@ SPOTSIGHT_CONFIG = types.GenerateContentConfig(
 
 def upload_guide(file_path: str):
     """Upload a local PDF to the Gemini File API and return the file object."""
-    uploaded_file = client.files.upload(file=file_path)
+    uploaded_file = get_client().files.upload(file=file_path)
     return uploaded_file
 
 
@@ -32,7 +43,7 @@ async def test_gemini(prompt: str, uploaded_file=None) -> str:
     if uploaded_file is not None:
         contents.append(uploaded_file)
 
-    response = await client.aio.models.generate_content(
+    response = await get_client().aio.models.generate_content(
         model="gemini-3.8-flash",
         contents=contents,
         config=SPOTSIGHT_CONFIG,
@@ -50,7 +61,7 @@ async def analyze_anomaly(payload: dict, document_file) -> str:
         "Cite the relevant record ID in your response."
     )
 
-    response = await client.aio.models.generate_content(
+    response = await get_client().aio.models.generate_content(
         model="gemini-3.8-flash",
         contents=[prompt, document_file],
         config=SPOTSIGHT_CONFIG,

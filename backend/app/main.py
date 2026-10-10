@@ -20,29 +20,19 @@ GUIDE_FILES = [
 ]
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Upload all Spot User Guide PDFs once at startup and cache them on app.state."""
-    print("[SPOTSight] Uploading Spot User Guides to Gemini Files API...")
-    app.state.spot_guides = []
-    for filename in GUIDE_FILES:
-        path = os.path.normpath(os.path.join(GUIDE_DIR, filename))
-        file_obj = upload_guide(path)
-        app.state.spot_guides.append(file_obj)
-        print(f"[SPOTSight] Uploaded: {filename} -> {file_obj.uri}")
-    print(f"[SPOTSight] {len(app.state.spot_guides)} guides ready.")
-    yield
-    # Nothing to clean up — Gemini files expire automatically after 48h
-
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """On startup, create all DB tables if DATABASE_URL is configured."""
+    """On startup: create DB tables (issue #1), then upload the Spot User Guides to Gemini.
+
+    Neither step can crash the server: failures are logged and startup continues.
+    """
+    # 1. Database tables
     try:
         from app.db.database import Base, engine
-        import app.db.models  # noqa: F401 - registers models on Base
+        from app.db import models  # noqa: F401 - registers models on Base (avoids shadowing `app`)
 
         if engine is not None:
             Base.metadata.create_all(bind=engine)
@@ -52,7 +42,25 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.error("Error during DB table creation: %s", exc)
 
+    # 2. Gemini guide upload (cached on app.state for the AI endpoints)
+    app.state.spot_guides = []
+    if not os.environ.get("GEMINI_API_KEY"):
+        logger.warning("Skipping Spot User Guide upload: GEMINI_API_KEY is not configured.")
+    else:
+        try:
+            print("[SPOTSight] Uploading Spot User Guides to Gemini Files API...")
+            for filename in GUIDE_FILES:
+                path = os.path.normpath(os.path.join(GUIDE_DIR, filename))
+                file_obj = upload_guide(path)
+                app.state.spot_guides.append(file_obj)
+                print(f"[SPOTSight] Uploaded: {filename} -> {file_obj.uri}")
+            print(f"[SPOTSight] {len(app.state.spot_guides)} guides ready.")
+        except Exception as exc:
+            logger.error("Error uploading Spot User Guides to Gemini: %s", exc)
+            app.state.spot_guides = []
+
     yield
+    # Nothing to clean up — Gemini files expire automatically after 48h
 
 
 app = FastAPI(
