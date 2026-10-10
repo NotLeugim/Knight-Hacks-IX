@@ -1,4 +1,6 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel
+from app.services.gemini import test_gemini, analyze_anomaly
 
 router = APIRouter()
 
@@ -33,3 +35,43 @@ def get_findings():
 def get_triage_queue():
     """Returns risk-ranked open issues (severity × criticality × failure rate)."""
     return {"queue": []}
+
+
+# ── AI ────────────────────────────────────────────────────────────────────────
+
+class PromptRequest(BaseModel):
+    prompt: str
+
+
+class AnomalyRequest(BaseModel):
+    mission_id: str
+    battery_pct: float
+    failure_type: str
+
+
+@router.post("/api/ai/test", tags=["ai"])
+async def ai_test(body: PromptRequest):
+    """Send a prompt to Gemini 1.5 Flash and return the generated response."""
+    try:
+        result = await test_gemini(body.prompt)
+        return {"response": result}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.post("/api/ai/analyze", tags=["ai"])
+async def ai_analyze(body: AnomalyRequest, request: Request):
+    """Analyze a telemetry anomaly against the pre-loaded Spot User Guides."""
+    try:
+        # Use the troubleshooting guide (pp. 31-72) — the most relevant section for anomaly diagnosis.
+        # Sending all 4 PDFs at once (~40 MB) causes Gemini to hang.
+        guide = request.app.state.spot_guides[3]
+        payload = {
+            "mission_id": body.mission_id,
+            "battery_pct": body.battery_pct,
+            "failure_type": body.failure_type,
+        }
+        result = await analyze_anomaly(payload, guide)
+        return {"mission_id": body.mission_id, "analysis": result}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
