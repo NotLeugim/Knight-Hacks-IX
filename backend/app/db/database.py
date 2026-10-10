@@ -20,6 +20,10 @@ _env_path = Path(__file__).resolve().parent.parent.parent / ".env"
 load_dotenv(dotenv_path=_env_path)
 
 DATABASE_URL: str | None = os.getenv("DATABASE_URL")
+# SQLAlchemy 2.1+ defaults "postgresql://" to the psycopg (v3) driver;
+# we install psycopg2-binary, so pin the driver explicitly.
+if DATABASE_URL and DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
 
 if DATABASE_URL:
     engine = create_engine(
