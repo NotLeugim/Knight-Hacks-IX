@@ -9,16 +9,19 @@ export const metadata = {
 
 export default function FindingsPage() {
   return (
-    <div
-      className="min-h-screen w-full p-4 sm:p-6 md:p-8"
-      style={{ background: 'var(--color-bg-primary)' }}
-    >
+    <div className="h-full overflow-auto p-4 sm:p-6 md:p-8">
       <div className="max-w-6xl mx-auto flex flex-col gap-6">
         <header className="flex flex-col gap-1">
-          <h1 className="text-xl md:text-2xl font-bold text-slate-100">
+          <h1
+            className="text-xl md:text-2xl font-bold"
+            style={{ color: 'var(--color-text-primary)' }}
+          >
             SPOTSight Analytics Dashboard
           </h1>
-          <p className="text-sm text-slate-400">
+          <p
+            className="text-sm"
+            style={{ color: 'var(--color-text-muted)' }}
+          >
             Autonomous inspection reliability analysis and findings metrics
           </p>
         </header>
