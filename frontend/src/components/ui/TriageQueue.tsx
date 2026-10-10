@@ -431,8 +431,8 @@ export default function TriageQueue({
           filteredAnomalies.length === 0 &&
           !selectedWaypointId && (
             <EmptyState
-              icon={<AlertTriangle className="w-6 h-6 text-status-nominal" />}
-              title="Queue Clear"
+              icon={<AlertTriangle className="w-6 h-6 text-green-500" />}
+              title="Queue Clear · Nominal"
               description="No unresolved anomalies flagged. Fleet telemetry is operating within nominal thresholds."
               className="py-8"
             />

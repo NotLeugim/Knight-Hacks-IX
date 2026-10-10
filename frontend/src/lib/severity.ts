@@ -80,6 +80,29 @@ export const SEVERITY_CONFIG: Record<string, SeverityTheme> = {
     label: 'LOW',
     rank: SEVERITY_RANKS.LOW,
   },
+  nominal: {
+    textColor: 'text-green-500',
+    badgeBg: 'bg-green-500/15',
+    badgeBorder: 'border-green-500/30',
+    cardBorderLeft: 'border-l-green-500',
+    markerColor: '#22c55e',       // Tailwind green-500
+    markerFill: '#16a34a',        // Tailwind green-600
+    pulse: false,
+    label: 'NOMINAL',
+    rank: 0,
+  },
+};
+
+export const NOMINAL_THEME: SeverityTheme = {
+  textColor: 'text-green-500',
+  badgeBg: 'bg-green-500/15',
+  badgeBorder: 'border-green-500/30',
+  cardBorderLeft: 'border-l-green-500',
+  markerColor: '#22c55e',
+  markerFill: '#16a34a',
+  pulse: false,
+  label: 'NOMINAL',
+  rank: 0,
 };
 
 export const DEFAULT_SEVERITY_THEME: SeverityTheme = {
@@ -110,8 +133,20 @@ export function getSeverityTheme(severity?: string | null): SeverityTheme {
 }
 
 /**
+ * Returns the appropriate SeverityTheme for a waypoint.
+ * If no open anomalies exist (or severity is 'nominal'), returns NOMINAL_THEME (green).
+ */
+export function getWaypointSeverityTheme(worstSeverity?: string | null): SeverityTheme {
+  if (!worstSeverity || worstSeverity.toLowerCase().trim() === 'nominal') {
+    return NOMINAL_THEME;
+  }
+  return getSeverityTheme(worstSeverity);
+}
+
+/**
  * Returns numeric priority rank for severity comparison (case-insensitive).
  */
 export function getSeverityRank(severity?: string | null): number {
   return getSeverityTheme(severity).rank;
 }
+

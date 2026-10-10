@@ -15,6 +15,8 @@ import {
   getSeverityTheme,
   getSeverityRank,
   SEVERITY_RANKS,
+  NOMINAL_THEME,
+  getWaypointSeverityTheme,
 } from '../severity';
 import { TriageAnomaly } from '../triageTypes';
 
@@ -104,7 +106,20 @@ describe('severity helpers and ranking', () => {
     assert.equal(getSeverityTheme('high').textColor, 'text-orange-500');
     assert.equal(getSeverityTheme('Medium').textColor, 'text-yellow-500');
     assert.equal(getSeverityTheme('low').textColor, 'text-blue-500');
+    assert.equal(getSeverityTheme('nominal').textColor, 'text-green-500');
     assert.equal(getSeverityTheme('nonexistent').textColor, 'text-slate-400');
+  });
+
+  it('maps nominal waypoints without anomalies to green NOMINAL_THEME', () => {
+    assert.equal(NOMINAL_THEME.textColor, 'text-green-500');
+    assert.equal(NOMINAL_THEME.markerColor, '#22c55e');
+    assert.equal(NOMINAL_THEME.markerFill, '#16a34a');
+    assert.equal(NOMINAL_THEME.label, 'NOMINAL');
+
+    assert.equal(getWaypointSeverityTheme(null), NOMINAL_THEME);
+    assert.equal(getWaypointSeverityTheme('nominal'), NOMINAL_THEME);
+    assert.equal(getWaypointSeverityTheme('NOMINAL'), NOMINAL_THEME);
+    assert.equal(getWaypointSeverityTheme('CRITICAL').textColor, 'text-red-500');
   });
 });
 

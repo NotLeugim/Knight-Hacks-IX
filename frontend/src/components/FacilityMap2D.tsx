@@ -4,7 +4,7 @@ import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import 'leaflet/dist/leaflet.css';
 import { useTriage } from '@/context/TriageContext';
-import { getSeverityTheme } from '@/lib/severity';
+import { getSeverityTheme, NOMINAL_THEME } from '@/lib/severity';
 import { normalizeWaypointId, WaypointAnomalySummary } from '@/lib/triageSelectors';
 import { TriageAnomaly } from '@/lib/triageTypes';
 
@@ -391,7 +391,7 @@ const MapContent = dynamic(
           const summary = waypointSummaries[normId];
           const hasAnomalies = Boolean(summary && summary.count > 0);
           const worstSeverity = summary?.worstSeverity ?? null;
-          const theme = getSeverityTheme(worstSeverity);
+          const theme = hasAnomalies ? getSeverityTheme(worstSeverity) : NOMINAL_THEME;
           const hasCritical = Boolean(summary?.hasCritical);
 
           const isSelected = selectedWaypointId === normId;
@@ -493,11 +493,17 @@ const MapContent = dynamic(
               >
                 <div className="font-mono text-xs font-semibold text-slate-100 flex items-center gap-1.5">
                   <span>{wp.id}</span>
-                  {hasAnomalies && (
+                  {hasAnomalies ? (
                     <span
                       className={`text-[10px] font-bold px-1.5 py-0.2 rounded uppercase ${theme.textColor} ${theme.badgeBg}`}
                     >
                       {theme.label} {count > 1 ? `(${count})` : ''}
+                    </span>
+                  ) : (
+                    <span
+                      className={`text-[10px] font-bold px-1.5 py-0.2 rounded uppercase ${NOMINAL_THEME.textColor} ${NOMINAL_THEME.badgeBg}`}
+                    >
+                      NOMINAL
                     </span>
                   )}
                 </div>
@@ -523,7 +529,9 @@ const MapContent = dynamic(
                         {theme.label}
                       </span>
                     ) : (
-                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded text-emerald-400 bg-emerald-950/40 border border-emerald-500/30">
+                      <span
+                        className={`text-[9px] font-bold px-1.5 py-0.5 rounded tracking-wide border uppercase ${NOMINAL_THEME.textColor} ${NOMINAL_THEME.badgeBg} ${NOMINAL_THEME.badgeBorder}`}
+                      >
                         NOMINAL
                       </span>
                     )}
