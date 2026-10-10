@@ -26,18 +26,50 @@ function ChartSkeleton({ title }: { title: string }) {
       }}
     >
       <div className="flex items-center justify-between">
-        <div className="h-4 bg-slate-700/60 rounded w-1/3" />
-        <div className="h-4 bg-slate-700/60 rounded w-16" />
+        <div
+          className="h-4 rounded w-1/3"
+          style={{ background: 'color-mix(in srgb, var(--color-border) 60%, transparent)' }}
+        />
+        <div
+          className="h-4 rounded w-16"
+          style={{ background: 'color-mix(in srgb, var(--color-border) 60%, transparent)' }}
+        />
       </div>
-      <div className="h-8 bg-slate-800/80 rounded w-3/4" />
-      <div className="h-72 w-full bg-slate-800/40 rounded flex items-end gap-2 p-4">
-        <div className="flex-1 bg-slate-700/40 rounded-t h-3/4" />
-        <div className="flex-1 bg-slate-700/40 rounded-t h-1/2" />
-        <div className="flex-1 bg-slate-700/40 rounded-t h-2/3" />
-        <div className="flex-1 bg-slate-700/40 rounded-t h-1/4" />
-        <div className="flex-1 bg-slate-700/40 rounded-t h-4/5" />
+      <div
+        className="h-8 rounded w-3/4"
+        style={{ background: 'var(--color-bg-secondary)' }}
+      />
+      <div
+        className="h-72 w-full rounded flex items-end gap-2 p-4"
+        style={{ background: 'var(--color-bg-secondary)' }}
+      >
+        <div
+          className="flex-1 rounded-t h-3/4"
+          style={{ background: 'color-mix(in srgb, var(--color-border) 60%, transparent)' }}
+        />
+        <div
+          className="flex-1 rounded-t h-1/2"
+          style={{ background: 'color-mix(in srgb, var(--color-border) 60%, transparent)' }}
+        />
+        <div
+          className="flex-1 rounded-t h-2/3"
+          style={{ background: 'color-mix(in srgb, var(--color-border) 60%, transparent)' }}
+        />
+        <div
+          className="flex-1 rounded-t h-1/4"
+          style={{ background: 'color-mix(in srgb, var(--color-border) 60%, transparent)' }}
+        />
+        <div
+          className="flex-1 rounded-t h-4/5"
+          style={{ background: 'color-mix(in srgb, var(--color-border) 60%, transparent)' }}
+        />
       </div>
-      <p className="text-xs text-slate-500 self-center">Loading {title}...</p>
+      <p
+        className="text-xs self-center"
+        style={{ color: 'var(--color-text-muted)' }}
+      >
+        Loading {title}...
+      </p>
     </div>
   );
 }
@@ -84,10 +116,16 @@ export default function FindingsChart() {
         }}
       >
         <div>
-          <h2 className="text-base font-semibold text-slate-100">
+          <h2
+            className="text-base font-semibold"
+            style={{ color: 'var(--color-text-primary)' }}
+          >
             Operational Findings &amp; Analytics
           </h2>
-          <p className="text-xs text-slate-400 mt-0.5">
+          <p
+            className="text-xs mt-0.5"
+            style={{ color: 'var(--color-text-muted)' }}
+          >
             Fleet reliability, battery threshold correlations, and mission outcome metrics
           </p>
         </div>
@@ -97,12 +135,15 @@ export default function FindingsChart() {
             id="source-fixture-badge"
             className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium self-start sm:self-auto shrink-0"
             style={{
-              background: 'rgba(245, 158, 11, 0.15)',
+              background: 'color-mix(in srgb, var(--color-warning) 15%, transparent)',
               color: 'var(--color-warning)',
-              border: '1px solid rgba(245, 158, 11, 0.3)',
+              border: '1px solid color-mix(in srgb, var(--color-warning) 30%, transparent)',
             }}
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+            <span
+              className="w-1.5 h-1.5 rounded-full animate-pulse"
+              style={{ background: 'var(--color-warning)' }}
+            />
             Sample data, backend offline
           </span>
         )}
@@ -112,12 +153,15 @@ export default function FindingsChart() {
             id="source-api-badge"
             className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium self-start sm:self-auto shrink-0"
             style={{
-              background: 'rgba(34, 197, 94, 0.15)',
+              background: 'color-mix(in srgb, var(--color-success) 15%, transparent)',
               color: 'var(--color-success)',
-              border: '1px solid rgba(34, 197, 94, 0.3)',
+              border: '1px solid color-mix(in srgb, var(--color-success) 30%, transparent)',
             }}
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            <span
+              className="w-1.5 h-1.5 rounded-full"
+              style={{ background: 'var(--color-success)' }}
+            />
             Connected to Live API
           </span>
         )}

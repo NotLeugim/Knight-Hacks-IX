@@ -13,6 +13,7 @@ import {
   Cell,
 } from 'recharts';
 import { BatteryReliabilityItem } from '../../lib/analyticsTypes';
+import { useChartThemeColors } from '../../lib/useCssVar';
 
 interface BatteryReliabilityChartProps {
   data: BatteryReliabilityItem[];
@@ -36,11 +37,15 @@ function CustomBatteryTooltip({ active, payload }: CustomTooltipProps) {
           color: 'var(--color-text-primary)',
         }}
       >
-        <p className="font-semibold text-slate-200 mb-1">{item.band} battery</p>
-        <p className="text-slate-300">
+        <p className="font-semibold mb-1" style={{ color: 'var(--color-text-primary)' }}>
+          {item.band} battery
+        </p>
+        <p style={{ color: 'var(--color-text-muted)' }}>
           <span
             className="font-semibold"
-            style={{ color: item.minPct < 30 ? 'var(--color-danger)' : '#94a3b8' }}
+            style={{
+              color: item.minPct < 30 ? 'var(--color-danger)' : 'var(--color-text-muted)',
+            }}
           >
             {item.failureRatePct}%
           </span>{' '}
@@ -53,6 +58,8 @@ function CustomBatteryTooltip({ active, payload }: CustomTooltipProps) {
 }
 
 export default function BatteryReliabilityChart({ data }: BatteryReliabilityChartProps) {
+  const colors = useChartThemeColors();
+
   // Dynamically compute weighted failure rates below and above 30% battery
   const belowBands = data.filter((d) => d.maxPct <= 30);
   const aboveBands = data.filter((d) => d.minPct >= 30);
@@ -78,10 +85,16 @@ export default function BatteryReliabilityChart({ data }: BatteryReliabilityChar
     >
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
-          <h3 className="text-sm font-semibold text-slate-200">
+          <h3
+            className="text-sm font-semibold"
+            style={{ color: 'var(--color-text-primary)' }}
+          >
             Battery Reliability &amp; Action Failure Rates
           </h3>
-          <p className="text-xs text-slate-400 mt-0.5">
+          <p
+            className="text-xs mt-0.5"
+            style={{ color: 'var(--color-text-muted)' }}
+          >
             Failure frequency across battery charge levels during all mission actions
           </p>
         </div>
@@ -89,17 +102,18 @@ export default function BatteryReliabilityChart({ data }: BatteryReliabilityChar
           <span
             className="text-xs px-2.5 py-1 rounded-md font-medium"
             style={{
-              background: 'rgba(239, 68, 68, 0.15)',
+              background: 'color-mix(in srgb, var(--color-danger) 15%, transparent)',
               color: 'var(--color-danger)',
-              border: '1px solid rgba(239, 68, 68, 0.3)',
+              border: '1px solid color-mix(in srgb, var(--color-danger) 30%, transparent)',
             }}
           >
             &lt;30% Danger
           </span>
           <span
-            className="text-xs px-2.5 py-1 rounded-md font-medium text-slate-400"
+            className="text-xs px-2.5 py-1 rounded-md font-medium"
             style={{
-              background: 'rgba(100, 116, 139, 0.15)',
+              background: 'color-mix(in srgb, var(--color-text-muted) 15%, transparent)',
+              color: 'var(--color-text-muted)',
               border: '1px solid var(--color-border)',
             }}
           >
@@ -112,12 +126,14 @@ export default function BatteryReliabilityChart({ data }: BatteryReliabilityChar
       <div
         className="rounded-lg px-3.5 py-2.5 text-xs font-medium"
         style={{
-          background: 'rgba(239, 68, 68, 0.1)',
+          background: 'color-mix(in srgb, var(--color-danger) 10%, transparent)',
           borderLeft: '3px solid var(--color-danger)',
           color: 'var(--color-text-primary)',
         }}
       >
-        <span className="font-semibold text-red-400">Key Finding: </span>
+        <span className="font-semibold" style={{ color: 'var(--color-danger)' }}>
+          Key Finding:{' '}
+        </span>
         {headline}
       </div>
 
@@ -130,37 +146,37 @@ export default function BatteryReliabilityChart({ data }: BatteryReliabilityChar
           >
             <CartesianGrid
               strokeDasharray="3 3"
-              stroke="var(--color-border)"
+              stroke={colors.border}
               opacity={0.4}
               vertical={false}
             />
             <XAxis
               dataKey="band"
-              stroke="var(--color-text-muted)"
-              tick={{ fill: 'var(--color-text-muted)', fontSize: 11 }}
+              stroke={colors.textMuted}
+              tick={{ fill: colors.textMuted, fontSize: 11 }}
               tickLine={false}
             />
             <YAxis
               domain={[0, 100]}
               ticks={[0, 25, 50, 75, 100]}
               tickFormatter={(v) => `${v}%`}
-              stroke="var(--color-text-muted)"
-              tick={{ fill: 'var(--color-text-muted)', fontSize: 11 }}
+              stroke={colors.textMuted}
+              tick={{ fill: colors.textMuted, fontSize: 11 }}
               tickLine={false}
               axisLine={false}
             />
             <Tooltip
               content={<CustomBatteryTooltip />}
-              cursor={{ fill: 'rgba(255, 255, 255, 0.04)' }}
+              cursor={{ fill: 'color-mix(in srgb, var(--color-text-primary) 4%, transparent)' }}
             />
             <ReferenceLine
               x="20-30%"
-              stroke="var(--color-warning)"
+              stroke={colors.warning}
               strokeDasharray="4 4"
               strokeWidth={2}
               label={{
                 value: '30% battery',
-                fill: 'var(--color-warning)',
+                fill: colors.warning,
                 position: 'top',
                 fontSize: 11,
                 fontWeight: 600,
@@ -170,7 +186,7 @@ export default function BatteryReliabilityChart({ data }: BatteryReliabilityChar
               {data.map((entry, index) => (
                 <Cell
                   key={`battery-bar-${index}`}
-                  fill={entry.minPct < 30 ? 'var(--color-danger)' : '#64748b'}
+                  fill={entry.minPct < 30 ? colors.chartFailed : colors.textMuted}
                 />
               ))}
             </Bar>

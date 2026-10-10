@@ -14,6 +14,7 @@ import {
   Legend,
 } from 'recharts';
 import { MissionParadoxData, MissionParadoxMission } from '../../lib/analyticsTypes';
+import { useChartThemeColors } from '../../lib/useCssVar';
 
 interface MissionParadoxChartProps {
   data: MissionParadoxData;
@@ -41,15 +42,20 @@ function CustomMissionTooltip({ active, payload }: CustomTooltipProps) {
           color: 'var(--color-text-primary)',
         }}
       >
-        <div className="flex items-center justify-between gap-2 mb-1.5 border-b pb-1" style={{ borderColor: 'var(--color-border)' }}>
-          <span className="font-semibold text-slate-100">{item.missionId}</span>
+        <div
+          className="flex items-center justify-between gap-2 mb-1.5 border-b pb-1"
+          style={{ borderColor: 'var(--color-border)' }}
+        >
+          <span className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+            {item.missionId}
+          </span>
           <span
             className="text-[10px] px-1.5 py-0.5 rounded font-medium"
             style={{
               background:
                 item.reportedStatus === 'FAILED'
-                  ? 'rgba(239, 68, 68, 0.2)'
-                  : 'rgba(34, 197, 94, 0.2)',
+                  ? 'color-mix(in srgb, var(--color-danger) 20%, transparent)'
+                  : 'color-mix(in srgb, var(--color-success) 20%, transparent)',
               color:
                 item.reportedStatus === 'FAILED'
                   ? 'var(--color-danger)'
@@ -59,10 +65,12 @@ function CustomMissionTooltip({ active, payload }: CustomTooltipProps) {
             {item.reportedStatus}
           </span>
         </div>
-        <p className="text-slate-300 leading-relaxed">
+        <p className="leading-relaxed" style={{ color: 'var(--color-text-muted)' }}>
           {item.missionId} · reported {item.reportedStatus} · {item.actionsSucceeded} of {total} actions succeeded ({succPct}%), {item.actionsFailed} failed ({failPct}%)
         </p>
-        <p className="text-[11px] text-slate-400 mt-1">Config: {item.config}</p>
+        <p className="text-[11px] mt-1" style={{ color: 'var(--color-text-muted)' }}>
+          Config: {item.config}
+        </p>
       </div>
     );
   }
@@ -70,6 +78,7 @@ function CustomMissionTooltip({ active, payload }: CustomTooltipProps) {
 }
 
 export default function MissionParadoxChart({ data }: MissionParadoxChartProps) {
+  const colors = useChartThemeColors();
   const { summary, missions } = data;
 
   const headline = `${summary.completedWithFailures} of ${summary.reportedCompleted} missions reported COMPLETED contained failed actions.`;
@@ -85,10 +94,16 @@ export default function MissionParadoxChart({ data }: MissionParadoxChartProps) 
     >
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
-          <h3 className="text-sm font-semibold text-slate-200">
+          <h3
+            className="text-sm font-semibold"
+            style={{ color: 'var(--color-text-primary)' }}
+          >
             Mission Paradox: High-Level Status vs. Action Failures
           </h3>
-          <p className="text-xs text-slate-400 mt-0.5">
+          <p
+            className="text-xs mt-0.5"
+            style={{ color: 'var(--color-text-muted)' }}
+          >
             Individual action results for each mission compared to operator-reported mission status
           </p>
         </div>
@@ -96,9 +111,9 @@ export default function MissionParadoxChart({ data }: MissionParadoxChartProps) 
           <span
             className="px-2.5 py-1 rounded-md font-medium"
             style={{
-              background: 'rgba(245, 158, 11, 0.15)',
+              background: 'color-mix(in srgb, var(--color-warning) 15%, transparent)',
               color: 'var(--color-warning)',
-              border: '1px solid rgba(245, 158, 11, 0.3)',
+              border: '1px solid color-mix(in srgb, var(--color-warning) 30%, transparent)',
             }}
           >
             ⚠️ M017 only reported FAILED
@@ -110,12 +125,14 @@ export default function MissionParadoxChart({ data }: MissionParadoxChartProps) 
       <div
         className="rounded-lg px-3.5 py-2.5 text-xs font-medium"
         style={{
-          background: 'rgba(245, 158, 11, 0.1)',
+          background: 'color-mix(in srgb, var(--color-warning) 10%, transparent)',
           borderLeft: '3px solid var(--color-warning)',
           color: 'var(--color-text-primary)',
         }}
       >
-        <span className="font-semibold text-amber-400">Key Finding: </span>
+        <span className="font-semibold" style={{ color: 'var(--color-warning)' }}>
+          Key Finding:{' '}
+        </span>
         {headline}
       </div>
 
@@ -128,7 +145,7 @@ export default function MissionParadoxChart({ data }: MissionParadoxChartProps) 
           >
             <CartesianGrid
               strokeDasharray="3 3"
-              stroke="var(--color-border)"
+              stroke={colors.border}
               opacity={0.4}
               vertical={false}
             />
@@ -147,7 +164,7 @@ export default function MissionParadoxChart({ data }: MissionParadoxChartProps) 
                     dy={12}
                     textAnchor="end"
                     transform={`rotate(-45, ${x}, ${y})`}
-                    fill={isFailed ? 'var(--color-warning)' : 'var(--color-text-muted)'}
+                    fill={isFailed ? colors.warning : colors.textMuted}
                     fontSize={isFailed ? 11 : 9.5}
                     fontWeight={isFailed ? 'bold' : 'normal'}
                   >
@@ -159,14 +176,14 @@ export default function MissionParadoxChart({ data }: MissionParadoxChartProps) 
             />
             <YAxis
               allowDecimals={false}
-              stroke="var(--color-text-muted)"
-              tick={{ fill: 'var(--color-text-muted)', fontSize: 11 }}
+              stroke={colors.textMuted}
+              tick={{ fill: colors.textMuted, fontSize: 11 }}
               tickLine={false}
               axisLine={false}
             />
             <Tooltip
               content={<CustomMissionTooltip />}
-              cursor={{ fill: 'rgba(255, 255, 255, 0.04)' }}
+              cursor={{ fill: 'color-mix(in srgb, var(--color-text-primary) 4%, transparent)' }}
             />
             <Legend
               verticalAlign="top"
@@ -176,11 +193,11 @@ export default function MissionParadoxChart({ data }: MissionParadoxChartProps) 
             {/* ReferenceLine separating V1 and V2 configurations */}
             <ReferenceLine
               x="M019"
-              stroke="var(--color-border)"
+              stroke={colors.border}
               strokeDasharray="3 3"
               label={{
                 value: 'V1 | V2 Upgrade',
-                fill: 'var(--color-text-muted)',
+                fill: colors.textMuted,
                 position: 'insideTopLeft',
                 fontSize: 10,
               }}
@@ -188,11 +205,11 @@ export default function MissionParadoxChart({ data }: MissionParadoxChartProps) 
             {/* Visual reference for the only reported FAILED mission */}
             <ReferenceLine
               x="M017"
-              stroke="var(--color-warning)"
+              stroke={colors.warning}
               strokeDasharray="3 3"
               label={{
                 value: 'Reported FAILED',
-                fill: 'var(--color-warning)',
+                fill: colors.warning,
                 position: 'top',
                 fontSize: 10,
                 fontWeight: 600,
@@ -202,13 +219,13 @@ export default function MissionParadoxChart({ data }: MissionParadoxChartProps) 
               dataKey="actionsSucceeded"
               stackId="mission"
               name="Actions Succeeded"
-              fill="var(--color-success)"
+              fill={colors.chartSucceeded}
             >
               {missions.map((entry) => (
                 <Cell
                   key={`succ-${entry.missionId}`}
-                  fill="var(--color-success)"
-                  stroke={entry.reportedStatus === 'FAILED' ? 'var(--color-warning)' : undefined}
+                  fill={colors.chartSucceeded}
+                  stroke={entry.reportedStatus === 'FAILED' ? colors.warning : undefined}
                   strokeWidth={entry.reportedStatus === 'FAILED' ? 2 : 0}
                 />
               ))}
@@ -217,14 +234,14 @@ export default function MissionParadoxChart({ data }: MissionParadoxChartProps) 
               dataKey="actionsFailed"
               stackId="mission"
               name="Actions Failed"
-              fill="var(--color-danger)"
+              fill={colors.chartFailed}
               radius={[3, 3, 0, 0]}
             >
               {missions.map((entry) => (
                 <Cell
                   key={`fail-${entry.missionId}`}
-                  fill="var(--color-danger)"
-                  stroke={entry.reportedStatus === 'FAILED' ? 'var(--color-warning)' : undefined}
+                  fill={colors.chartFailed}
+                  stroke={entry.reportedStatus === 'FAILED' ? colors.warning : undefined}
                   strokeWidth={entry.reportedStatus === 'FAILED' ? 2 : 0}
                 />
               ))}
