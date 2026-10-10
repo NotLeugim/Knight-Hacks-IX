@@ -8,71 +8,19 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { cn } from '@/lib/utils';
 
-export interface SeverityTheme {
-  textColor: string;
-  badgeBg: string;
-  badgeBorder: string;
-  cardBorderLeft: string;
-  label: string;
-}
+import {
+  SEVERITY_CONFIG,
+  DEFAULT_SEVERITY_THEME,
+  getSeverityTheme,
+  SeverityTheme,
+} from '@/lib/severity';
 
-/**
- * Single case-insensitive lookup table for anomaly severity themes.
- * Uses exact required Tailwind color classes:
- *   - CRITICAL -> text-red-500
- *   - MEDIUM   -> text-yellow-500
- *   - HIGH     -> text-orange-500
- *   - LOW      -> text-blue-500
- */
-export const SEVERITY_CONFIG: Record<string, SeverityTheme> = {
-  critical: {
-    textColor: 'text-red-500',
-    badgeBg: 'bg-red-500/15',
-    badgeBorder: 'border-red-500/30',
-    cardBorderLeft: 'border-l-red-500',
-    label: 'CRITICAL',
-  },
-  high: {
-    textColor: 'text-orange-500',
-    badgeBg: 'bg-orange-500/15',
-    badgeBorder: 'border-orange-500/30',
-    cardBorderLeft: 'border-l-orange-500',
-    label: 'HIGH',
-  },
-  medium: {
-    textColor: 'text-yellow-500',
-    badgeBg: 'bg-yellow-500/15',
-    badgeBorder: 'border-yellow-500/30',
-    cardBorderLeft: 'border-l-yellow-500',
-    label: 'MEDIUM',
-  },
-  low: {
-    textColor: 'text-blue-500',
-    badgeBg: 'bg-blue-500/15',
-    badgeBorder: 'border-blue-500/30',
-    cardBorderLeft: 'border-l-blue-500',
-    label: 'LOW',
-  },
+export {
+  SEVERITY_CONFIG,
+  DEFAULT_SEVERITY_THEME,
+  getSeverityTheme,
+  type SeverityTheme,
 };
-
-export const DEFAULT_SEVERITY_THEME: SeverityTheme = {
-  textColor: 'text-slate-400',
-  badgeBg: 'bg-slate-500/15',
-  badgeBorder: 'border-slate-500/30',
-  cardBorderLeft: 'border-l-slate-400',
-  label: 'UNKNOWN',
-};
-
-export function getSeverityTheme(severity?: string): SeverityTheme {
-  if (!severity) return DEFAULT_SEVERITY_THEME;
-  const key = severity.toLowerCase().trim();
-  return (
-    SEVERITY_CONFIG[key] ?? {
-      ...DEFAULT_SEVERITY_THEME,
-      label: severity.toUpperCase(),
-    }
-  );
-}
 
 function formatTimestamp(timestampStr?: string): string {
   if (!timestampStr) return '';
