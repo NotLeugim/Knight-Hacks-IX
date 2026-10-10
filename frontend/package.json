@@ -8,17 +8,24 @@
     "start": "next start"
   },
   "dependencies": {
+    "@react-three/drei": "latest",
+    "@react-three/fiber": "latest",
+    "autoprefixer": "latest",
+    "framer-motion": "latest",
+    "lucide-react": "latest",
     "next": "latest",
+    "postcss": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "three": "latest",
-    "@react-three/fiber": "latest",
-    "@react-three/drei": "latest",
-    "framer-motion": "latest",
     "recharts": "latest",
-    "lucide-react": "latest",
     "tailwindcss": "latest",
-    "postcss": "latest",
-    "autoprefixer": "latest"
+    "three": "latest"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "26.6.5",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "typescript": "7.0.2"
   }
 }
