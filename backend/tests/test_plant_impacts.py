@@ -4,7 +4,7 @@ backend/tests/test_plant_impacts.py
 Unit tests for power plant weather impact evaluations.
 Tests verify:
 - Safety thresholds across thunderstorm, wind gust, heavy rain, and heat/cold extremes
-- Technology-specific operational rules (Gas, Nuclear, Solar, Wind, BESS, Diverse Mix)
+- Technology-specific operational rules (Gas, Nuclear, Solar, Wind, BESS)
 - Source labels attached to every reason
 - Centralized config usage
 - Endpoint validation and 422 errors for invalid plant types
@@ -121,12 +121,9 @@ def test_natural_gas_derating_at_35c():
     res_mild = plant_impacts.evaluate_natural_gas_impact(h_mild, [])
     assert "warm air slightly lowers gas turbine output" in res_mild["outputLabel"]
 
-    # Test diverse mix status for both mild heat (>=90%) and strong heat (<90%)
-    mix_mild = plant_impacts.evaluate_mix_impact(h_mild, [])
-    assert mix_mild["components"]["natural_gas"]["status"] == "Slightly reduced (warm air)"
-
-    mix_hot = plant_impacts.evaluate_mix_impact(h, [])
-    assert mix_hot["components"]["natural_gas"]["status"] == "Reduced in heat"
+    # Test natural gas status for both mild heat (>=90%) and strong heat (<90%)
+    assert res_mild["status"] == "Slightly reduced (warm air)"
+    assert res["status"] == "Reduced in heat"
 
 
 def test_solar_night_and_radiation_and_hail():
@@ -203,3 +200,28 @@ def test_invalid_plant_type_returns_422():
     response = client.get("/api/weather/plant-impacts?lat=28.5&lon=-81.3&plant=fusion")
     assert response.status_code == 422
     assert "Invalid plant type" in response.text
+
+
+def test_mix_plant_type_returns_422():
+    response = client.get("/api/weather/plant-impacts?lat=28.5&lon=-81.3&plant=mix")
+    assert response.status_code == 422
+    assert "Invalid plant type" in response.text
+
+
+def test_all_valid_plant_types_return_200():
+    mock_forecast = {
+        "hourly": [_build_hour(temp=25.0) for _ in range(48)],
+        "alerts": [],
+    }
+    with patch(
+        "app.api.weather.weather_service.get_weather_forecast",
+        new_callable=AsyncMock,
+        return_value=mock_forecast,
+    ):
+        for plant in ["natural_gas", "nuclear", "solar", "wind", "battery_storage"]:
+            resp = client.get(f"/api/weather/plant-impacts?lat=28.5&lon=-81.3&plant={plant}")
+            assert resp.status_code == 200, f"Failed for {plant}: {resp.text}"
+            data = resp.json()
+            assert data["plantType"] == plant
+            assert "current" in data
+            assert len(data["timeline"]) == 48
