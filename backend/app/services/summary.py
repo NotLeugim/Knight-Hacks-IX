@@ -232,37 +232,44 @@ def build_template_summary(facts: dict[str, Any]) -> list[str]:
 
     # Bullet 2: Failed actions & reported status comparison
     if failed_actions:
-        types = [
-            a["failureType"].upper() if a.get("failureType") else a["actionType"].upper()
-            for a in failed_actions
-        ]
-        counts = Counter(types)
-        top_type, top_count = counts.most_common(1)[0]
+        groups: dict[str, list[str]] = {}
+        first_seen: dict[str, int] = {}
+        for idx, a in enumerate(failed_actions):
+            t = format_failure_type(a.get("failureType"))
+            loc = a["locationName"]
+            if t not in groups:
+                groups[t] = []
+                first_seen[t] = idx
+            groups[t].append(loc)
 
-        if top_count > 1:
-            # Only say "most common" when one failure type occurs more than once
-            top_locs = [
-                a["locationName"]
-                for a in failed_actions
-                if (a.get("failureType") and a["failureType"].upper() == top_type)
-                or (not a.get("failureType") and a["actionType"].upper() == top_type)
-            ]
-            common_loc = Counter(top_locs).most_common(1)[0][0]
-            plain_type = format_failure_type(top_type)
-            fail_clause = f"most common: {plain_type} at {common_loc}"
-        else:
-            # If every failure type is different, list them in plain words with locations
-            items = [
-                f"{format_failure_type(a.get('failureType'))} at {a['locationName']}"
-                for a in failed_actions
-            ]
-            fail_clause = ", ".join(items)
+        sorted_types = sorted(groups.keys(), key=lambda t: (-len(groups[t]), first_seen[t]))
+        group_phrases = []
+        for t in sorted_types:
+            locs = groups[t]
+            unique_locs: list[str] = []
+            for l in locs:
+                if l not in unique_locs:
+                    unique_locs.append(l)
 
+            if len(unique_locs) == 1:
+                if len(locs) > 1:
+                    times = "twice" if len(locs) == 2 else f"{len(locs)} times"
+                    phrase = f"{t} {times} at {unique_locs[0]}"
+                else:
+                    phrase = f"{t} at {unique_locs[0]}"
+            elif len(unique_locs) == 2:
+                phrase = f"{t} at {unique_locs[0]} and {unique_locs[1]}"
+            else:
+                all_but_last = ", ".join(unique_locs[:-1])
+                phrase = f"{t} at {all_but_last}, and {unique_locs[-1]}"
+            group_phrases.append(phrase)
+
+        fail_clause = "; ".join(group_phrases)
         fail_info = f"{len(failed_actions)} of {total_actions} actions failed ({fail_clause})"
         if reported_status == "COMPLETED":
             bullet_2 = f"- {fail_info}, even though the mission reported COMPLETED."
         else:
-            bullet_2 = f"- {fail_info}; mission reported FAILED."
+            bullet_2 = f"- {fail_info}, and the mission reported FAILED."
     else:
         bullet_2 = f"- All {total_actions} actions completed successfully."
 
