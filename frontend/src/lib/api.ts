@@ -353,5 +353,90 @@ export async function fetchMissionForecast(
   }
 }
 
+// ── Weather & Plant Impacts ──────────────────────────────────────────────────
+
+import type {
+  GeocodeResponse,
+  WeatherForecastResponse,
+  PlantImpactResponse,
+} from './weatherTypes';
+export * from './weatherTypes';
+
+/**
+ * Searches for locations matching a query using the Open-Meteo geocoding backend endpoint.
+ * Returns { results: [], source: 'offline' } on network failure or if query is too short.
+ */
+export async function fetchWeatherGeocode(
+  query: string
+): Promise<{ results: GeocodeResponse['results']; source: 'api' | 'offline' }> {
+  const cleanQ = query.trim();
+  if (cleanQ.length < 2) {
+    return { results: [], source: 'api' };
+  }
+  try {
+    const data = await get<GeocodeResponse>(
+      `/api/weather/geocode?q=${encodeURIComponent(cleanQ)}`
+    );
+    return { results: data?.results || [], source: 'api' };
+  } catch (err) {
+    console.warn(`[SPOTSight] Failed to geocode query '${cleanQ}':`, err);
+    return { results: [], source: 'offline' };
+  }
+}
+
+/**
+ * Fetches the 7-day forecast, 48-hour hourly series, and NWS alerts for coordinates.
+ * Returns { data: null, source: 'offline' } if the backend is unreachable.
+ * Never invents mock weather data.
+ */
+export async function fetchWeatherForecast(
+  lat: number,
+  lon: number,
+  name?: string
+): Promise<{ data: WeatherForecastResponse | null; source: 'api' | 'offline' }> {
+  try {
+    const params = new URLSearchParams({
+      lat: String(lat),
+      lon: String(lon),
+    });
+    if (name) {
+      params.append('name', name);
+    }
+    const data = await get<WeatherForecastResponse>(`/api/weather/forecast?${params.toString()}`);
+    return { data, source: 'api' };
+  } catch (err) {
+    console.warn(`[SPOTSight] Failed to fetch forecast for (${lat}, ${lon}):`, err);
+    return { data: null, source: 'offline' };
+  }
+}
+
+/**
+ * Fetches power plant impact analysis (safety thresholds, output indicators, recommended actions).
+ * Returns { data: null, source: 'offline' } if the backend is unreachable.
+ */
+export async function fetchPlantImpacts(
+  lat: number,
+  lon: number,
+  plant: string = 'mix',
+  name?: string
+): Promise<{ data: PlantImpactResponse | null; source: 'api' | 'offline' }> {
+  try {
+    const params = new URLSearchParams({
+      lat: String(lat),
+      lon: String(lon),
+      plant,
+    });
+    if (name) {
+      params.append('name', name);
+    }
+    const data = await get<PlantImpactResponse>(`/api/weather/plant-impacts?${params.toString()}`);
+    return { data, source: 'api' };
+  } catch (err) {
+    console.warn(`[SPOTSight] Failed to fetch plant impacts for ${plant} at (${lat}, ${lon}):`, err);
+    return { data: null, source: 'offline' };
+  }
+}
+
+
 
 

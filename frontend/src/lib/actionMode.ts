@@ -1,215 +1,257 @@
 /**
- * Pure helper module for Action Mode overlay status evaluation.
- * Evaluates actions at waypoints against the Completed Mission Paradox:
- * - Green: Action succeeded (no anomalies)
- * - Yellow: Medium or Low anomaly
- * - Red: High or Critical anomaly, or a failed action
- * Precedence when multiple actions exist: Red > Yellow > Green > Neutral.
+ * actionMode.ts — Pure helper module for Action Mode failure heat map evaluation.
+ *
+ * Exposes the "Completed Mission Paradox" by visualizing action failure outcomes:
+ * - Source of truth = action outcome (failed status / ACTION_FAILED)
+ * - Anomaly or concern severity does NOT dictate heat color
+ * - Continuous color ramp: Low failure rate (green) -> Medium (yellow/orange) -> High (red)
+ * - Intensity & radius scale with failedCount so high-frequency failure points read hotter
+ * - Zero failure waypoints remain a calm, low-intensity green
  */
-
-export type ActionModeColor = 'red' | 'yellow' | 'green' | 'neutral';
 
 export interface ActionRecord {
   action_id: string;
   mission_id?: string;
   sequence?: string | number;
   timestamp?: string;
-  location_id: string; // e.g. 'WP01'
+  location_id: string; // e.g. 'WP05'
   asset_id?: string;
   action_type?: string;
   battery_pct?: string | number;
-  status: string; // 'SUCCESS' | 'FAILED' (case-insensitive)
+  status: string; // 'SUCCESS' | 'FAILED'
   failure_type?: string;
   duration_sec?: string | number;
+  event_type?: string;
+  // Anomaly metadata may exist in data, but is ignored for Action Mode heat calculation
   anomaly_id?: string | null;
-  severity?: string | null; // 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' (case-insensitive)
+  severity?: string | null;
   anomaly_type?: string | null;
   description?: string;
 }
 
-export interface WaypointActionSummary {
+export interface FailedActionItem {
+  action_id: string;
+  action_type?: string;
+  failure_type?: string;
+  timestamp?: string;
+  mission_id?: string;
+}
+
+export interface WaypointHeatMetrics {
   waypointId: string;
-  color: ActionModeColor;
-  statusLabel: string;
-  badgeHex: string;
-  glowRgba: string;
-  totalActions: number;
+  totalCount: number;
   failedCount: number;
-  anomaliesCount: number;
-  worstAction: ActionRecord | null;
-  isRed: boolean;
-}
-
-export const ACTION_MODE_THEME: Record<
-  ActionModeColor,
-  {
-    hex: string;
-    glow: string;
-    label: string;
-    ringClass: string;
-    badgeBg: string;
-    badgeBorder: string;
-  }
-> = {
-  red: {
-    hex: '#ef4444',
-    glow: 'rgba(239, 68, 68, 0.9)',
-    label: 'Failed Action / High Critical Anomaly',
-    ringClass: 'ring-red-500',
-    badgeBg: 'bg-red-500/20',
-    badgeBorder: 'border-red-500/50',
-  },
-  yellow: {
-    hex: '#f59e0b',
-    glow: 'rgba(245, 158, 11, 0.85)',
-    label: 'Medium / Low Anomaly',
-    ringClass: 'ring-amber-500',
-    badgeBg: 'bg-amber-500/20',
-    badgeBorder: 'border-amber-500/50',
-  },
-  green: {
-    hex: '#10b981',
-    glow: 'rgba(16, 185, 129, 0.85)',
-    label: 'Action Succeeded',
-    ringClass: 'ring-emerald-500',
-    badgeBg: 'bg-emerald-500/20',
-    badgeBorder: 'border-emerald-500/50',
-  },
-  neutral: {
-    hex: '#38bdf8',
-    glow: 'rgba(56, 189, 248, 0.5)',
-    label: 'No Actions Logged',
-    ringClass: 'ring-sky-400',
-    badgeBg: 'bg-sky-500/20',
-    badgeBorder: 'border-sky-500/50',
-  },
-};
-
-/**
- * Evaluates a single action row according to the specification:
- * - Red: High or Critical anomaly, or a failed action
- * - Yellow: Medium or Low anomaly
- * - Green: Action succeeded
- * - Neutral: None of the above
- */
-export function evaluateSingleAction(action: ActionRecord): ActionModeColor {
-  const status = (action.status || '').trim().toUpperCase();
-  const severity = (action.severity || '').trim().toUpperCase();
-
-  // Red: High or Critical anomaly, or a failed action
-  if (status === 'FAILED' || severity === 'HIGH' || severity === 'CRITICAL') {
-    return 'red';
-  }
-
-  // Yellow: Medium or Low anomaly
-  if (severity === 'MEDIUM' || severity === 'LOW') {
-    return 'yellow';
-  }
-
-  // Green: Action succeeded
-  if (status === 'SUCCESS') {
-    return 'green';
-  }
-
-  return 'neutral';
+  failureRate: number; // 0.0 to 1.0
+  heatScore: number;   // 0.0 to 1.0
+  color: string;       // Hex string (#10b981 -> #eab308 -> #f97316 -> #ef4444)
+  glowRgba: string;    // rgba string for radial gradient and halo
+  glowRadius: number;  // pixel radius for glow halo (24px to 85px)
+  glowOpacity: number; // 0.2 to 0.85
+  failedActions: FailedActionItem[];
+  isFailing: boolean;
 }
 
 /**
- * Returns numeric precedence for comparison: Red > Yellow > Green > Neutral.
+ * Linearly interpolates between two RGB colors [r, g, b].
  */
-function getColorPriority(color: ActionModeColor): number {
-  switch (color) {
-    case 'red':
-      return 3;
-    case 'yellow':
-      return 2;
-    case 'green':
-      return 1;
-    case 'neutral':
-    default:
-      return 0;
-  }
+function interpolateRgb(
+  colorA: [number, number, number],
+  colorB: [number, number, number],
+  t: number
+): [number, number, number] {
+  const clamped = Math.max(0, Math.min(1, t));
+  return [
+    Math.round(colorA[0] + (colorB[0] - colorA[0]) * clamped),
+    Math.round(colorA[1] + (colorB[1] - colorA[1]) * clamped),
+    Math.round(colorA[2] + (colorB[2] - colorA[2]) * clamped),
+  ];
+}
+
+function rgbToHex(rgb: [number, number, number]): string {
+  return '#' + rgb.map((c) => c.toString(16).padStart(2, '0')).join('');
 }
 
 /**
- * Evaluates a list of actions for a given waypoint.
- * If multiple actions exist, the worst severity (Red > Yellow > Green) wins.
- * Returns a detailed summary including the highest-priority action payload.
+ * Continuous color ramp driven by failure heat:
+ * 0.00: Emerald green (#10b981) - Zero failures / safe
+ * 0.15: Yellow (#eab308)        - Low failure rate
+ * 0.35: Orange (#f97316)        - Moderate failure rate
+ * 0.60+: Bright Red (#ef4444)   - High failure rate
+ * 1.00: Deep Crimson (#dc2626)  - Severe failure cluster
  */
-export function resolveWaypointActionStatus(
-  waypointId: string,
-  actions: ActionRecord[]
-): WaypointActionSummary {
-  const normTarget = waypointId.trim().toUpperCase().replace(/[-_]/g, '');
+export function getHeatColor(heatScore: number): string {
+  if (heatScore <= 0) {
+    return '#10b981';
+  }
 
-  const matchingActions = actions.filter((act) => {
-    const normLoc = (act.location_id || '').trim().toUpperCase().replace(/[-_]/g, '');
-    return normLoc === normTarget;
-  });
+  const STOPS: Array<{ at: number; rgb: [number, number, number] }> = [
+    { at: 0.0, rgb: [16, 185, 129] },  // #10b981 (Green)
+    { at: 0.15, rgb: [234, 179, 8] },  // #eab308 (Yellow)
+    { at: 0.35, rgb: [249, 115, 22] }, // #f97316 (Orange)
+    { at: 0.65, rgb: [239, 68, 68] },  // #ef4444 (Red)
+    { at: 1.0, rgb: [220, 38, 38] },   // #dc2626 (Crimson)
+  ];
 
-  if (matchingActions.length === 0) {
+  for (let i = 0; i < STOPS.length - 1; i++) {
+    const cur = STOPS[i];
+    const nxt = STOPS[i + 1];
+    if (heatScore >= cur.at && heatScore <= nxt.at) {
+      const localT = (heatScore - cur.at) / (nxt.at - cur.at);
+      const rgb = interpolateRgb(cur.rgb, nxt.rgb, localT);
+      return rgbToHex(rgb);
+    }
+  }
+
+  return '#dc2626';
+}
+
+/**
+ * Computes heat ramp metrics (color, radius, opacity, glow) from action failure counts.
+ * - If failedCount === 0: calm low-intensity green, compact radius.
+ * - If failedCount > 0: heat scales with failureRate and count intensity.
+ */
+export function computeHeatRamp(
+  failedCount: number,
+  totalCount: number,
+  failureRate: number
+): {
+  heatScore: number;
+  color: string;
+  glowRgba: string;
+  glowRadius: number;
+  glowOpacity: number;
+} {
+  if (totalCount === 0 || failedCount === 0) {
     return {
-      waypointId,
-      color: 'neutral',
-      statusLabel: 'NO ACTIONS',
-      badgeHex: ACTION_MODE_THEME.neutral.hex,
-      glowRgba: ACTION_MODE_THEME.neutral.glow,
-      totalActions: 0,
-      failedCount: 0,
-      anomaliesCount: 0,
-      worstAction: null,
-      isRed: false,
+      heatScore: 0,
+      color: '#10b981',
+      glowRgba: 'rgba(16, 185, 129, 0.25)',
+      glowRadius: 24,
+      glowOpacity: 0.2,
     };
   }
 
-  let worstColor: ActionModeColor = 'neutral';
-  let worstAction: ActionRecord | null = null;
-  let failedCount = 0;
-  let anomaliesCount = 0;
+  // Weight failureRate heavily (70%), blended with volume scaling (30% up to 10 failures)
+  const volumeFactor = Math.min(1.0, failedCount / 10);
+  const heatScore = Math.min(1.0, failureRate * 0.7 + volumeFactor * 0.3);
 
-  for (const act of matchingActions) {
-    const actColor = evaluateSingleAction(act);
-    if ((act.status || '').trim().toUpperCase() === 'FAILED') {
-      failedCount++;
-    }
-    if (act.severity) {
-      anomaliesCount++;
-    }
+  const color = getHeatColor(heatScore);
 
-    if (getColorPriority(actColor) > getColorPriority(worstColor)) {
-      worstColor = actColor;
-      worstAction = act;
-    } else if (worstAction === null) {
-      worstAction = act;
-    }
-  }
+  // Radius scales from 38px up to 85px to merge with neighboring hot zones
+  const glowRadius = Math.round(38 + volumeFactor * 35 + failureRate * 12);
 
-  const theme = ACTION_MODE_THEME[worstColor];
+  // Opacity scales from 0.45 up to 0.85
+  const glowOpacity = Math.round((0.45 + heatScore * 0.4) * 100) / 100;
+
+  // Convert hex color to rgba glow
+  const r = parseInt(color.slice(1, 3), 16);
+  const g = parseInt(color.slice(3, 5), 16);
+  const b = parseInt(color.slice(5, 7), 16);
+  const glowRgba = `rgba(${r}, ${g}, ${b}, ${glowOpacity})`;
 
   return {
-    waypointId,
-    color: worstColor,
-    statusLabel: worstColor.toUpperCase(),
-    badgeHex: theme.hex,
-    glowRgba: theme.glow,
-    totalActions: matchingActions.length,
-    failedCount,
-    anomaliesCount,
-    worstAction,
-    isRed: worstColor === 'red',
+    heatScore,
+    color,
+    glowRgba,
+    glowRadius,
+    glowOpacity,
   };
 }
 
 /**
- * Builds a map of waypointId -> WaypointActionSummary for quick lookup.
+ * Aggregates all action records for a single waypoint based strictly on failure status.
+ * Any anomaly flags or concern indicators are deliberately ignored.
  */
-export function computeAllWaypointsActionSummaries(
+export function aggregateWaypointActions(
+  waypointId: string,
+  actions: ActionRecord[]
+): {
+  waypointId: string;
+  totalCount: number;
+  failedCount: number;
+  failureRate: number;
+  failedActions: FailedActionItem[];
+} {
+  const targetNorm = waypointId.trim().toUpperCase().replace(/[-_]/g, '');
+
+  const matching = actions.filter((a) => {
+    const locNorm = (a.location_id || '').trim().toUpperCase().replace(/[-_]/g, '');
+    return locNorm === targetNorm;
+  });
+
+  const failedItems: FailedActionItem[] = [];
+  let failedCount = 0;
+
+  for (const act of matching) {
+    const status = (act.status || '').trim().toUpperCase();
+    const eventType = (act.event_type || '').trim().toUpperCase();
+
+    const isFailed = status === 'FAILED' || eventType === 'ACTION_FAILED';
+    if (isFailed) {
+      failedCount++;
+      failedItems.push({
+        action_id: act.action_id,
+        action_type: act.action_type,
+        failure_type: act.failure_type,
+        timestamp: act.timestamp,
+        mission_id: act.mission_id,
+      });
+    }
+  }
+
+  const totalCount = matching.length;
+  const failureRate = totalCount > 0 ? failedCount / totalCount : 0;
+
+  return {
+    waypointId,
+    totalCount,
+    failedCount,
+    failureRate,
+    failedActions: failedItems,
+  };
+}
+
+/**
+ * Resolves full heat metrics and style attributes for a waypoint in Action Mode.
+ */
+export function resolveWaypointHeat(
+  waypointId: string,
+  actions: ActionRecord[]
+): WaypointHeatMetrics {
+  const aggregated = aggregateWaypointActions(waypointId, actions);
+  const ramp = computeHeatRamp(
+    aggregated.failedCount,
+    aggregated.totalCount,
+    aggregated.failureRate
+  );
+
+  return {
+    waypointId,
+    totalCount: aggregated.totalCount,
+    failedCount: aggregated.failedCount,
+    failureRate: aggregated.failureRate,
+    heatScore: ramp.heatScore,
+    color: ramp.color,
+    glowRgba: ramp.glowRgba,
+    glowRadius: ramp.glowRadius,
+    glowOpacity: ramp.glowOpacity,
+    failedActions: aggregated.failedActions,
+    isFailing: aggregated.failedCount > 0,
+  };
+}
+
+/**
+ * Precomputes heat summaries across all given waypoint IDs.
+ */
+export function computeAllWaypointsHeat(
   waypointIds: string[],
   actions: ActionRecord[]
-): Record<string, WaypointActionSummary> {
-  const result: Record<string, WaypointActionSummary> = {};
+): Record<string, WaypointHeatMetrics> {
+  const result: Record<string, WaypointHeatMetrics> = {};
   for (const wpId of waypointIds) {
-    result[wpId] = resolveWaypointActionStatus(wpId, actions);
+    result[wpId] = resolveWaypointHeat(wpId, actions);
   }
   return result;
 }
+
+export * from './actionFailureCauses';

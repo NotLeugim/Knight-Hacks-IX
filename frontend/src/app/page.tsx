@@ -26,7 +26,7 @@ export default function Home() {
 
   // Callback contract for future AI Smart Drawer: logs node ID and action payload
   const handleNodeSelect = useCallback((nodeId: string, payload?: unknown) => {
-    console.log(`[SPOTSight Action Mode] Red node selected: ${nodeId}`, payload);
+    console.log(`[SPOTSight Action Mode] Failing node selected: ${nodeId}`, payload);
   }, []);
 
   // Health check and synchronized anomaly data fetch on mount
