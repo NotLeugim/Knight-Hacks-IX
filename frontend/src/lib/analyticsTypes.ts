@@ -25,6 +25,9 @@ export interface MissionParadoxMission {
   config: string;
   actionsSucceeded: number;
   actionsFailed: number;
+  startTime?: string;
+  endTime?: string;
+  durationMin?: number;
 }
 
 export interface MissionParadoxData {

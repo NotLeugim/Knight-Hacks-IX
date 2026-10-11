@@ -15,8 +15,10 @@ import {
   BatteryCharging,
   ShieldAlert,
   Info,
+  Calendar,
+  Clock,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, formatMissionTimeRange } from '@/lib/utils';
 import { toStatus, STATUS_CONFIG } from '@/lib/status';
 
 interface MissionDetailProps {
@@ -219,7 +221,13 @@ export default function MissionDetail({ missionId }: MissionDetailProps) {
         </div>
 
         {summary && (
-          <div className="flex items-center gap-3 text-xs text-orbit-text-secondary">
+          <div className="flex flex-wrap items-center gap-2.5 text-xs text-orbit-text-secondary">
+            {summary.facts?.startTime && (
+              <span className="inline-flex items-center gap-1.5 font-mono text-[11px] px-2 py-0.5 rounded border border-panel-border bg-panel-header text-orbit-text font-medium">
+                <Calendar className="w-3 h-3 text-orbit-blue shrink-0" />
+                <span>{formatMissionTimeRange(summary.facts.startTime, summary.facts.endTime)}</span>
+              </span>
+            )}
             <span
               className={cn(
                 'inline-flex items-center gap-1 font-mono text-[11px] px-1.5 py-0.5 rounded border',

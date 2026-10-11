@@ -11,6 +11,7 @@ import React, {
 } from 'react';
 import { TriageAnomaly } from '@/lib/triageTypes';
 import { fetchTriageQueue } from '@/lib/api';
+import { toStatus } from '@/lib/status';
 import {
   normalizeWaypointId,
   computeWaypointSummaries,
@@ -60,9 +61,15 @@ export interface TriageProviderProps {
   children: ReactNode;
   /** Optional custom initial anomalies for tests or mocks */
   initialAnomalies?: TriageAnomaly[];
+  /** Optional callback fired when anomalies list updates (e.g. on reloadQueue) */
+  onAnomaliesChange?: (anomalies: TriageAnomaly[]) => void;
 }
 
-export function TriageProvider({ children, initialAnomalies }: TriageProviderProps) {
+export function TriageProvider({
+  children,
+  initialAnomalies,
+  onAnomaliesChange,
+}: TriageProviderProps) {
   const [anomalies, setAnomalies] = useState<TriageAnomaly[]>(initialAnomalies ?? []);
   const [isLoading, setIsLoading] = useState<boolean>(!initialAnomalies);
   const [error, setError] = useState<string | null>(null);
@@ -73,6 +80,21 @@ export function TriageProvider({ children, initialAnomalies }: TriageProviderPro
   const [hoveredWaypointId, setHoveredWaypointId] = useState<string | null>(null);
   const [reviewRequiredOnly, setReviewRequiredOnly] = useState<boolean>(false);
 
+  // Synchronize anomalies state whenever initialAnomalies prop updates
+  useEffect(() => {
+    if (initialAnomalies) {
+      setAnomalies(initialAnomalies);
+      setIsLoading(false);
+      setSelectedAnomalyId((prevSelected) => {
+        if (!prevSelected) return null;
+        const exists = initialAnomalies.some(
+          (a) => (a.id || a.anomaly_id) === prevSelected
+        );
+        return exists ? prevSelected : null;
+      });
+    }
+  }, [initialAnomalies]);
+
   // Single fetch on mount (only if initialAnomalies not supplied)
   const reloadQueue = useCallback(async () => {
     setIsLoading(true);
@@ -82,6 +104,7 @@ export function TriageProvider({ children, initialAnomalies }: TriageProviderPro
       // Strictly preserve original order returned by backend/fixture
       const list = response.queue ?? [];
       setAnomalies(list);
+      onAnomaliesChange?.(list);
 
       // Clean up selection if previously selected anomaly no longer exists in fresh data
       setSelectedAnomalyId((prevSelected) => {
@@ -97,7 +120,7 @@ export function TriageProvider({ children, initialAnomalies }: TriageProviderPro
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [onAnomaliesChange]);
 
   useEffect(() => {
     if (!initialAnomalies) {
@@ -162,7 +185,7 @@ export function TriageProvider({ children, initialAnomalies }: TriageProviderPro
   // Cycle through CRITICAL anomalies in queue order
   const selectNextCritical = useCallback(() => {
     const criticalList = anomalies.filter(
-      (a) => a.severity?.toUpperCase().trim() === 'CRITICAL'
+      (a) => toStatus(a.severity) === 'critical'
     );
     if (criticalList.length === 0) return;
 
