@@ -440,3 +440,25 @@ export async function fetchPlantImpacts(
 
 
 
+
+// ── Worker Safety Advisory ──────────────────────────────────────────────────
+
+import type { WorkerSafetyData, WorkerSafetyResponse } from './workerSafetyTypes';
+export * from './workerSafetyTypes';
+
+/**
+ * Fetches worker occupational safety recommendations for follow-up visits.
+ * Returns { data, source: 'live' } on success, or { data: null, source: 'offline' } if unreachable.
+ */
+export async function fetchWorkerSafety(
+  missionId: string
+): Promise<WorkerSafetyResponse> {
+  try {
+    const data = await get<WorkerSafetyData>(`/api/worker-safety/missions/${encodeURIComponent(missionId)}`);
+    return { data, source: 'live' };
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.warn(`[SPOTSight] Failed to fetch worker safety for mission ${missionId}:`, err);
+    return { data: null, source: 'offline', error: errorMessage };
+  }
+}
