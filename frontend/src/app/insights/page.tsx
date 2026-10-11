@@ -5,6 +5,8 @@ import { Panel } from '@/components/ui/Panel';
 import { Pill } from '@/components/ui/Pill';
 import FindingsChart from '@/components/charts/FindingsChart';
 import ConfigComparisonCard from '@/components/insights/ConfigComparisonCard';
+import TrendWatchCard from '@/components/insights/TrendWatchCard';
+import ModelAccuracyCard from '@/components/insights/ModelAccuracyCard';
 import { fetchAnalytics } from '@/lib/api';
 import { AnalyticsResponse } from '@/lib/analyticsTypes';
 import { analyticsFixture } from '@/lib/analyticsFixture';
@@ -46,6 +48,8 @@ export default function InsightsPage() {
         <div className="max-w-6xl mx-auto py-2 flex flex-col gap-6">
           <FindingsChart />
           <ConfigComparisonCard data={analytics.configComparison} />
+          <TrendWatchCard />
+          <ModelAccuracyCard />
         </div>
       </Panel>
     </div>
