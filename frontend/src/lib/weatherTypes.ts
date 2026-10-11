@@ -86,8 +86,7 @@ export type PlantType =
   | 'natural_gas'
   | 'nuclear'
   | 'solar'
-  | 'wind'
-  | 'battery_storage';
+  | 'wind';
 
 export type ImpactLevel = 'Normal' | 'Watch' | 'Warning';
 
