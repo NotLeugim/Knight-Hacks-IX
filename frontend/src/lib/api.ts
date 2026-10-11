@@ -179,3 +179,23 @@ export async function fetchAnalytics(): Promise<{
   }
 }
 
+// ── Actions ─────────────────────────────────────────────────────────────────
+
+import { ActionRecord } from './actionMode';
+import { actionsFixture } from './actionsFixture';
+
+export async function fetchActions(): Promise<{
+  actions: ActionRecord[];
+  source: 'api' | 'fixture';
+}> {
+  try {
+    const data = await get<{ actions: ActionRecord[] }>('/api/actions');
+    if (Array.isArray(data?.actions) && data.actions.length > 0) {
+      return { actions: data.actions, source: 'api' };
+    }
+    return { actions: actionsFixture, source: 'fixture' };
+  } catch (err) {
+    return { actions: actionsFixture, source: 'fixture' };
+  }
+}
+

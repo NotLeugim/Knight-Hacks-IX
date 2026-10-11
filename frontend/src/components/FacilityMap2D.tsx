@@ -34,6 +34,8 @@ export interface FacilityMap2DProps {
   onSelectAnomaly?: (anomalyId: string | null) => void;
   onHoverWaypoint?: (waypointId: string | null) => void;
   onClearSelection?: () => void;
+  mode?: 'pathfinding' | 'action';
+  onNodeSelect?: (nodeId: string, payload?: unknown) => void;
 }
 
 // Floor configs calibrated to the clean borderless crops
@@ -449,6 +451,8 @@ const MapContent = dynamic(
       onHoverWaypoint,
       onClearSelection,
       waypointSummaries = {},
+      mode = 'pathfinding',
+      onNodeSelect,
     }: InnerMapProps) {
       const [internalFloor, setInternalFloor] = useState<FloorSelection>('floor1');
       const activeFloor = controlledFloor ?? internalFloor;
@@ -759,16 +763,18 @@ const MapContent = dynamic(
               className="dark-mode-overlay"
             />
 
-            {/* Glowing Blue Tracking Path */}
-            <Polyline
-              positions={polylinePositions}
-              pathOptions={{
-                color: '#3b82f6',
-                weight: 3,
-                dashArray: '8, 8',
-                opacity: 1.0,
-              }}
-            />
+            {/* Glowing Blue Tracking Path (hidden in Action Mode) */}
+            {mode !== 'action' && (
+              <Polyline
+                positions={polylinePositions}
+                pathOptions={{
+                  color: '#3b82f6',
+                  weight: 3,
+                  dashArray: '8, 8',
+                  opacity: 1.0,
+                }}
+              />
+            )}
 
             {/* Dynamic Waypoint Markers */}
             {renderedMarkers}

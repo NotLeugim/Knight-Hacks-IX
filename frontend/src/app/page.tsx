@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import TriageQueue from '../components/ui/TriageQueue';
 import { checkHealth, fetchTriageQueue, TriageAnomaly } from '../lib/api';
 import { triageFixture } from '../lib/triageFixture';
 import { Panel } from '@/components/ui/Panel';
 import { TriageProvider } from '@/context/TriageContext';
+import type { OverlayMode } from '../components/InteractiveFloorPlan';
 
 const InteractiveFloorPlan = dynamic(
   () => import('../components/InteractiveFloorPlan'),
@@ -18,6 +19,14 @@ export default function Home() {
   const [anomalies, setAnomalies] = useState<TriageAnomaly[]>(triageFixture);
   // Hoisted global issue selection state (tracks specific anomaly ID e.g. 'AN014')
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
+
+  // Action Mode overlay state: defaults to 'pathfinding'
+  const [overlayMode, setOverlayMode] = useState<OverlayMode>('pathfinding');
+
+  // Callback contract for future AI Smart Drawer: logs node ID and action payload
+  const handleNodeSelect = useCallback((nodeId: string, payload?: unknown) => {
+    console.log(`[SPOTSight Action Mode] Red node selected: ${nodeId}`, payload);
+  }, []);
 
   // Health check and synchronized anomaly data fetch on mount
   useEffect(() => {
@@ -47,6 +56,9 @@ export default function Home() {
             anomalies={anomalies}
             selectedIssueId={selectedIssueId}
             onSelectIssueId={setSelectedIssueId}
+            overlayMode={overlayMode}
+            onOverlayModeChange={setOverlayMode}
+            onNodeSelect={handleNodeSelect}
           />
         </Panel>
 
