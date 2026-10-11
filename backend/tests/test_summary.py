@@ -87,6 +87,10 @@ def test_2_m026_issues_and_visual_defect(client):
     assert "MEDIUM" in text_content
     assert "visual defect" in text_content.lower()
 
+    # M026 has 1 anomaly total, so bullet 3 must not contain "0 other anomalies"
+    assert "0 other anomalies" not in data["bullets"][2]
+    assert data["bullets"][2] == "- No other anomalies. Mission confidence score: 95/100."
+
 
 def test_3_m017_reflects_reported_failed(client):
     """
@@ -280,3 +284,39 @@ def test_9_asset_and_location_grounding(client):
 
         for act in facts["failedActions"]:
             assert act["locationName"] in valid_loc_names
+
+
+def test_10_m015_clean_wording_no_raw_codes(client):
+    """
+    10. M015 summary does not contain 'most common' (since all 3 failures are distinct)
+        and contains no raw failure codes like LOCALIZATION_FAILURE.
+    """
+    res = client.get("/api/missions/M015/summary")
+    assert res.status_code == 200
+    data = res.json()
+
+    # Bullet 2: Check failure description
+    bullet_2 = data["bullets"][1]
+    assert "most common" not in bullet_2
+    raw_codes = [
+        "LOCALIZATION_FAILURE",
+        "SENSOR_TIMEOUT",
+        "SIGNAL_NOISE",
+        "READING_UNRELIABLE",
+        "TARGET_NOT_DETECTED",
+        "COMMUNICATION_LOSS",
+        "PATH_BLOCKED",
+        "OBSTACLE_DETECTION",
+    ]
+    for code in raw_codes:
+        assert code not in bullet_2
+
+    assert "lost localization at Pipe Gallery" in bullet_2
+    assert "sensor timeout at Pump Bay" in bullet_2
+    assert "signal noise at Control Room Corridor" in bullet_2
+
+    # Bullet 3: Check remaining anomalies
+    bullet_3 = data["bullets"][2]
+    assert "0 require" not in bullet_3
+    assert "3 other anomalies remain" in bullet_3
+    assert "Mission confidence score: 51/100." in bullet_3

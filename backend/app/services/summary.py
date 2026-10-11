@@ -172,6 +172,24 @@ def get_anomaly_next_step(anomaly_type: str) -> str:
     return "Perform a manual inspection."
 
 
+FAILURE_TYPE_MAP: dict[str, str] = {
+    "LOCALIZATION_FAILURE": "lost localization",
+    "SENSOR_TIMEOUT": "sensor timeout",
+    "SIGNAL_NOISE": "signal noise",
+    "READING_UNRELIABLE": "unreliable reading",
+    "TARGET_NOT_DETECTED": "target not detected",
+    "COMMUNICATION_LOSS": "communication loss",
+    "PATH_BLOCKED": "path blocked",
+    "OBSTACLE_DETECTION": "obstacle detected",
+}
+
+
+def format_failure_type(ft: str | None) -> str:
+    if not ft:
+        return "action failure"
+    return FAILURE_TYPE_MAP.get(str(ft).upper(), str(ft).replace("_", " ").lower())
+
+
 def build_template_summary(facts: dict[str, Any]) -> list[str]:
     """
     Constructs a deterministic, operator-friendly 3-bullet summary from mission facts.
@@ -183,6 +201,7 @@ def build_template_summary(facts: dict[str, Any]) -> list[str]:
     confidence_score = facts["confidence"]["score"] if facts.get("confidence") else 100
     reported_status = facts["reportedStatus"]
 
+    sorted_anomalies: list[dict[str, Any]] = []
     # Bullet 1: Most severe anomaly (operator review required first)
     if anomalies:
         sorted_anomalies = sorted(
@@ -205,7 +224,7 @@ def build_template_summary(facts: dict[str, Any]) -> list[str]:
         # No anomalies: describe failed actions
         if failed_actions:
             first_fail = failed_actions[0]
-            ft = first_fail["failureType"] or first_fail["actionType"]
+            ft = format_failure_type(first_fail.get("failureType"))
             loc = first_fail["locationName"]
             bullet_1 = f"- Action failure ({ft}) occurred in {loc}; check route and sensor conditions."
         else:
@@ -213,13 +232,33 @@ def build_template_summary(facts: dict[str, Any]) -> list[str]:
 
     # Bullet 2: Failed actions & reported status comparison
     if failed_actions:
-        # Determine most common failure type and location
-        failure_types = [a["failureType"] or a["actionType"] for a in failed_actions]
-        locations = [a["locationName"] for a in failed_actions]
-        common_type = Counter(failure_types).most_common(1)[0][0]
-        common_loc = Counter(locations).most_common(1)[0][0]
+        types = [
+            a["failureType"].upper() if a.get("failureType") else a["actionType"].upper()
+            for a in failed_actions
+        ]
+        counts = Counter(types)
+        top_type, top_count = counts.most_common(1)[0]
 
-        fail_info = f"{len(failed_actions)} of {total_actions} actions failed (most common: {common_type} in {common_loc})"
+        if top_count > 1:
+            # Only say "most common" when one failure type occurs more than once
+            top_locs = [
+                a["locationName"]
+                for a in failed_actions
+                if (a.get("failureType") and a["failureType"].upper() == top_type)
+                or (not a.get("failureType") and a["actionType"].upper() == top_type)
+            ]
+            common_loc = Counter(top_locs).most_common(1)[0][0]
+            plain_type = format_failure_type(top_type)
+            fail_clause = f"most common: {plain_type} at {common_loc}"
+        else:
+            # If every failure type is different, list them in plain words with locations
+            items = [
+                f"{format_failure_type(a.get('failureType'))} at {a['locationName']}"
+                for a in failed_actions
+            ]
+            fail_clause = ", ".join(items)
+
+        fail_info = f"{len(failed_actions)} of {total_actions} actions failed ({fail_clause})"
         if reported_status == "COMPLETED":
             bullet_2 = f"- {fail_info}, even though the mission reported COMPLETED."
         else:
@@ -228,16 +267,26 @@ def build_template_summary(facts: dict[str, Any]) -> list[str]:
         bullet_2 = f"- All {total_actions} actions completed successfully."
 
     # Bullet 3: Remaining anomalies & confidence score
-    other_anomalies_count = max(0, len(anomalies) - 1) if anomalies else 0
-    other_review_count = (
-        sum(1 for a in sorted_anomalies[1:] if a["operatorReviewRequired"])
-        if (anomalies and len(anomalies) > 1)
-        else 0
-    )
-    bullet_3 = (
-        f"- {other_anomalies_count} other anomalies remain "
-        f"({other_review_count} require operator review); mission confidence score is {confidence_score}/100."
-    )
+    if not anomalies or len(anomalies) <= 1:
+        bullet_3 = f"- No other anomalies. Mission confidence score: {confidence_score}/100."
+    else:
+        other_anomalies_count = len(anomalies) - 1
+        other_review_count = sum(1 for a in sorted_anomalies[1:] if a["operatorReviewRequired"])
+        plural = "anomaly remains" if other_anomalies_count == 1 else "anomalies remain"
+
+        if other_review_count > 0:
+            review_phrase = (
+                f" ({other_review_count} needs operator review)"
+                if other_review_count == 1
+                else f" ({other_review_count} need operator review)"
+            )
+        else:
+            review_phrase = ""
+
+        bullet_3 = (
+            f"- {other_anomalies_count} other {plural}{review_phrase}. "
+            f"Mission confidence score: {confidence_score}/100."
+        )
 
     return [bullet_1, bullet_2, bullet_3]
 
