@@ -16,14 +16,25 @@ import {
   Thermometer,
   Activity,
   Zap,
+  Navigation,
+  AlertTriangle,
 } from 'lucide-react';
 import type { TriageAnomaly } from '@/lib/triageTypes';
+import {
+  ActionRecord,
+  WaypointActionSummary,
+  resolveWaypointActionStatus,
+  computeAllWaypointsActionSummaries,
+} from '@/lib/actionMode';
+import { actionsFixture } from '@/lib/actionsFixture';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
 export type ActiveFloor = 'Floor 1' | 'Floor 2';
 
 export type WaypointStatus = 'nominal' | 'warning' | 'critical' | 'info';
+
+export type OverlayMode = 'pathfinding' | 'action';
 
 export interface FloorWaypoint {
   id: string; // e.g. 'WP01'
@@ -49,6 +60,10 @@ export interface InteractiveFloorPlanProps {
   onSelectWaypointId?: (id: string | null) => void;
   onSelectWaypoint?: (wp: FloorWaypoint | null) => void;
   anomalies?: TriageAnomaly[];
+  actions?: ActionRecord[];
+  overlayMode?: OverlayMode;
+  onOverlayModeChange?: (mode: OverlayMode) => void;
+  onNodeSelect?: (nodeId: string, payload?: ActionRecord | null) => void;
 }
 
 // ── Waypoint Data Definitions (Clean Nominal Baseline) ───────────────────────
@@ -320,25 +335,38 @@ const FLOOR2_PATROL_SVG = `
 
 // ── Custom Leaflet DivIcon Builder (With Radar Blip Mount Animation) ─────────
 
-function createBlueprintPin(wp: FloorWaypoint, isSelected: boolean) {
+function createBlueprintPin(
+  wp: FloorWaypoint,
+  isSelected: boolean,
+  mode: OverlayMode = 'pathfinding',
+  actionSummary?: WaypointActionSummary
+) {
   if (typeof window === 'undefined') return undefined;
 
-  const isCritical = wp.status === 'critical';
-  const isWarning = wp.status === 'warning';
-  const isNominal = wp.status === 'nominal';
+  let isCritical = wp.status === 'critical';
+  let isWarning = wp.status === 'warning';
+  let isNominal = wp.status === 'nominal';
 
   let color = '#38bdf8'; // Electric blue default
   let glow = 'rgba(56, 189, 248, 0.6)';
 
-  if (isCritical) {
-    color = '#ef4444';
-    glow = 'rgba(239, 68, 68, 0.9)';
-  } else if (isWarning) {
-    color = '#f59e0b';
-    glow = 'rgba(245, 158, 11, 0.8)';
-  } else if (isNominal) {
-    color = '#10b981';
-    glow = 'rgba(16, 185, 129, 0.8)';
+  if (mode === 'action' && actionSummary) {
+    color = actionSummary.badgeHex;
+    glow = actionSummary.glowRgba;
+    isCritical = actionSummary.color === 'red';
+    isWarning = actionSummary.color === 'yellow';
+    isNominal = actionSummary.color === 'green';
+  } else {
+    if (isCritical) {
+      color = '#ef4444';
+      glow = 'rgba(239, 68, 68, 0.9)';
+    } else if (isWarning) {
+      color = '#f59e0b';
+      glow = 'rgba(245, 158, 11, 0.8)';
+    } else if (isNominal) {
+      color = '#10b981';
+      glow = 'rgba(16, 185, 129, 0.8)';
+    }
   }
 
   // Exact anchor positioning: iconSize is [32, 42], iconAnchor is [16, 42].
@@ -1100,10 +1128,33 @@ export default function InteractiveFloorPlan({
   onSelectWaypointId,
   onSelectWaypoint,
   anomalies,
+  actions,
+  overlayMode,
+  onOverlayModeChange,
+  onNodeSelect,
 }: InteractiveFloorPlanProps) {
   const [activeFloor, setActiveFloor] = useState<ActiveFloor>(initialFloor);
   const [showRoute, setShowRoute] = useState<boolean>(true);
   const [selectedWp, setSelectedWp] = useState<FloorWaypoint | null>(null);
+
+  // Controlled or uncontrolled Mode state: defaults to 'pathfinding'
+  const [internalMode, setInternalMode] = useState<OverlayMode>('pathfinding');
+  const activeMode = overlayMode ?? internalMode;
+  const setMode = useCallback(
+    (newMode: OverlayMode) => {
+      setInternalMode(newMode);
+      onOverlayModeChange?.(newMode);
+    },
+    [onOverlayModeChange]
+  );
+
+  const currentActions = actions ?? actionsFixture;
+
+  // Compute Action Mode summaries across all waypoints
+  const actionSummaries = useMemo(() => {
+    const ids = FLOOR_WAYPOINTS.map((w) => w.id);
+    return computeAllWaypointsActionSummaries(ids, currentActions);
+  }, [currentActions]);
 
   // Compute dynamic status of all waypoints across both floors based on hoisted anomalies
   const allDynamicWaypoints = useMemo(() => {
@@ -1215,6 +1266,14 @@ export default function InteractiveFloorPlan({
       onSelectWaypointId?.(wp.id);
       onSelectWaypoint?.(wp);
 
+      // In Action Mode: clicking a red node triggers callback to parent (Smart Drawer contract)
+      if (activeMode === 'action') {
+        const summary = actionSummaries[wp.id];
+        if (summary?.isRed) {
+          onNodeSelect?.(wp.id, summary.worstAction);
+        }
+      }
+
       // Look up issue for this waypoint to sync selectedIssueId
       const matchingAnomalies = anomalies?.filter((a) => {
         const rawLoc = a.location_id || '';
@@ -1232,7 +1291,7 @@ export default function InteractiveFloorPlan({
         onSelectIssueId?.(null);
       }
     },
-    [anomalies, onSelectIssueId, onSelectWaypointId, onSelectWaypoint]
+    [activeMode, actionSummaries, onNodeSelect, anomalies, onSelectIssueId, onSelectWaypointId, onSelectWaypoint]
   );
 
   const handleDismiss = useCallback(() => {
@@ -1247,8 +1306,41 @@ export default function InteractiveFloorPlan({
       className={`relative w-full h-full flex flex-col bg-[#071b33] text-slate-100 overflow-hidden rounded-xl border border-sky-900 shadow-2xl select-none ${className}`}
       style={style}
     >
-      {/* ── Top Bar: Floor Switcher & Patrol Route Toggle ── */}
+      {/* ── Top Bar: Floor Switcher, Mode Toggle & Patrol Route Toggle ── */}
       <div className="absolute top-4 left-4 z-[1000] flex flex-wrap items-center gap-2">
+        {/* Mode Toggle (Segmented Control: Pathfinding Mode vs Action Mode) */}
+        <div
+          id="mode-toggle-segmented"
+          className="flex items-center bg-[#0c2340]/95 backdrop-blur-md p-1 rounded-lg border border-sky-600/60 shadow-xl"
+        >
+          <button
+            id="toggle-mode-pathfinding"
+            type="button"
+            onClick={() => setMode('pathfinding')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold tracking-wide transition-all ${
+              activeMode === 'pathfinding'
+                ? 'bg-sky-500/35 text-sky-200 border border-sky-400 shadow-[0_0_12px_rgba(56,189,248,0.4)]'
+                : 'text-slate-300 hover:text-white hover:bg-sky-900/50 border border-transparent'
+            }`}
+          >
+            <Navigation className="w-3.5 h-3.5" />
+            <span>Pathfinding Mode</span>
+          </button>
+          <button
+            id="toggle-mode-action"
+            type="button"
+            onClick={() => setMode('action')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold tracking-wide transition-all ${
+              activeMode === 'action'
+                ? 'bg-amber-500/30 text-amber-200 border border-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.4)]'
+                : 'text-slate-300 hover:text-white hover:bg-sky-900/50 border border-transparent'
+            }`}
+          >
+            <AlertTriangle className="w-3.5 h-3.5" />
+            <span>Action Mode</span>
+          </button>
+        </div>
+
         {/* Floor Selection Tabs */}
         <div className="flex items-center bg-[#0c2340]/95 backdrop-blur-md p-1 rounded-lg border border-sky-600/60 shadow-xl">
           {(['Floor 1', 'Floor 2'] as ActiveFloor[]).map((floor) => {
@@ -1271,46 +1363,79 @@ export default function InteractiveFloorPlan({
           })}
         </div>
 
-        {/* SPOT Patrol Route Toggle */}
-        <button
-          id="toggle-patrol-route"
-          onClick={() => setShowRoute((prev) => !prev)}
-          className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold backdrop-blur-md border transition-all shadow-xl ${
-            showRoute
-              ? 'bg-sky-500/35 border-sky-400 text-sky-100 shadow-[0_0_14px_rgba(56,189,248,0.45)]'
-              : 'bg-[#0c2340]/90 border-sky-800 text-slate-300 hover:text-white hover:bg-sky-900/40'
-          }`}
-        >
-          <Radio className={`w-3.5 h-3.5 ${showRoute ? 'animate-pulse text-cyan-300' : 'text-slate-400'}`} />
-          <span>SPOT Patrol Route</span>
-          <span
-            className={`w-2 h-2 rounded-full ml-1 ${
-              showRoute ? 'bg-cyan-400 shadow-[0_0_8px_#22d3ee]' : 'bg-slate-500'
+        {/* SPOT Patrol Route Toggle (Active in Pathfinding Mode; Stripped in Action Mode) */}
+        {activeMode === 'pathfinding' ? (
+          <button
+            id="toggle-patrol-route"
+            onClick={() => setShowRoute((prev) => !prev)}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold backdrop-blur-md border transition-all shadow-xl ${
+              showRoute
+                ? 'bg-sky-500/35 border-sky-400 text-sky-100 shadow-[0_0_14px_rgba(56,189,248,0.45)]'
+                : 'bg-[#0c2340]/90 border-sky-800 text-slate-300 hover:text-white hover:bg-sky-900/40'
             }`}
-          />
-        </button>
+          >
+            <Radio className={`w-3.5 h-3.5 ${showRoute ? 'animate-pulse text-cyan-300' : 'text-slate-400'}`} />
+            <span>SPOT Patrol Route</span>
+            <span
+              className={`w-2 h-2 rounded-full ml-1 ${
+                showRoute ? 'bg-cyan-400 shadow-[0_0_8px_#22d3ee]' : 'bg-slate-500'
+              }`}
+            />
+          </button>
+        ) : (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-semibold bg-[#0c2340]/80 border border-sky-800/80 text-sky-300 backdrop-blur-md shadow-lg">
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            <span>Path Clutter Stripped</span>
+          </div>
+        )}
       </div>
 
-      {/* ── Top-Right Blueprint Status Legend ── */}
-      <div className="absolute top-4 right-4 z-[1000] hidden md:flex items-center gap-3.5 bg-[#0c2340]/95 backdrop-blur-md px-4 py-1.5 rounded-lg border border-sky-700/80 shadow-xl text-xs font-mono">
-        <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#10b981]"></span>
-          <span className="text-slate-200 font-semibold">Nominal</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_#f59e0b]"></span>
-          <span className="text-slate-200 font-semibold">Warning</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-80"></span>
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500 shadow-[0_0_10px_#ef4444]"></span>
+      {/* ── Top-Right Legend: Action Mode vs Pathfinding Blueprint Status ── */}
+      {activeMode === 'action' ? (
+        <div
+          id="action-mode-legend"
+          className="absolute top-4 right-4 z-[1000] flex items-center gap-3 bg-[#0c2340]/95 backdrop-blur-md px-3.5 py-1.5 rounded-lg border border-sky-500/60 shadow-xl text-xs font-mono"
+        >
+          <span className="text-[11px] font-bold text-sky-400 uppercase tracking-wider pr-1 border-r border-sky-800 hidden sm:inline">
+            Action Status
           </span>
-          <span className="text-red-300 font-bold">
-            Critical ({criticalWaypoints.length > 0 ? criticalWaypoints.map((w) => w.id).join(', ') : 'None'})
-          </span>
+          <div className="flex items-center gap-1.5" title="Action succeeded with no anomalies">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#10b981]"></span>
+            <span className="text-emerald-300 font-semibold text-[11px]">Green: Succeeded</span>
+          </div>
+          <div className="flex items-center gap-1.5" title="Low or Medium anomaly flagged">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_#f59e0b]"></span>
+            <span className="text-amber-300 font-semibold text-[11px]">Yellow: Med/Low</span>
+          </div>
+          <div className="flex items-center gap-1.5" title="Action failed or High/Critical anomaly detected">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-80"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500 shadow-[0_0_10px_#ef4444]"></span>
+            </span>
+            <span className="text-red-400 font-bold text-[11px]">Red: Failed / High/Crit</span>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="absolute top-4 right-4 z-[1000] hidden md:flex items-center gap-3.5 bg-[#0c2340]/95 backdrop-blur-md px-4 py-1.5 rounded-lg border border-sky-700/80 shadow-xl text-xs font-mono">
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#10b981]"></span>
+            <span className="text-slate-200 font-semibold">Nominal</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_#f59e0b]"></span>
+            <span className="text-slate-200 font-semibold">Warning</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-80"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500 shadow-[0_0_10px_#ef4444]"></span>
+            </span>
+            <span className="text-red-300 font-bold">
+              Critical ({criticalWaypoints.length > 0 ? criticalWaypoints.map((w) => w.id).join(', ') : 'None'})
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* ── Leaflet Map Container ── */}
       <div className="relative flex-1 w-full h-full">
@@ -1341,18 +1466,19 @@ export default function InteractiveFloorPlan({
             onDismiss={handleDismiss}
           />
 
-          {/* Blueprint SVG Overlays */}
+          {/* Blueprint SVG Overlays (Polylines stripped in Action Mode) */}
           {activeFloor === 'Floor 1' && (
-            <Floor1BlueprintOverlay showRoute={showRoute} />
+            <Floor1BlueprintOverlay showRoute={activeMode === 'pathfinding' && showRoute} />
           )}
           {activeFloor === 'Floor 2' && (
-            <Floor2BlueprintOverlay showRoute={showRoute} />
+            <Floor2BlueprintOverlay showRoute={activeMode === 'pathfinding' && showRoute} />
           )}
 
-          {/* Waypoint Markers (Standard Popups completely removed; absolute telemetry panel used) */}
+          {/* Waypoint Markers (Rendered with Action Mode status colors when active) */}
           {visibleWaypoints.map((wp) => {
             const isSelected = selectedWp?.id === wp.id;
-            const icon = createBlueprintPin(wp, isSelected);
+            const actionSummary = actionSummaries[wp.id];
+            const icon = createBlueprintPin(wp, isSelected, activeMode, actionSummary);
             if (!icon) return null;
 
             return (
