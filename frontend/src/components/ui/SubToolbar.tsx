@@ -32,13 +32,16 @@ export function SubToolbar({
         className
       )}
     >
-      {/* ── Left Slot: Optional Filter Icon + Contextual Page Title (~22px, regular-to-medium, white) ── */}
-      <div className="flex items-center gap-2 shrink-0 min-w-0">
+      {/* ── Left Slot: Contextual Page Title (~22px, regular-to-medium, white) ── */}
+      <div className="flex items-center min-w-0 shrink max-w-[40%] sm:max-w-[30%]">
         {leftSlot ? (
           leftSlot
         ) : (
           title && (
-            <h1 className="text-[20px] sm:text-[22px] font-medium text-white tracking-tight leading-none truncate">
+            <h1
+              className="text-[20px] sm:text-[22px] font-medium text-white tracking-tight leading-none truncate min-w-0 block"
+              title={typeof title === 'string' ? title : undefined}
+            >
               {title}
             </h1>
           )
