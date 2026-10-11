@@ -99,11 +99,11 @@ describe('Weather Dashboard & Plant Impacts Tests', () => {
     assert.equal(resolvePlantType(undefined), 'nuclear');
     assert.equal(resolvePlantType('unknown_plant'), 'nuclear');
     assert.equal(resolvePlantType(''), 'nuclear');
+    assert.equal(resolvePlantType('battery_storage'), 'nuclear');
 
     // Valid values are preserved
     assert.equal(resolvePlantType('nuclear'), 'nuclear');
     assert.equal(resolvePlantType('natural_gas'), 'natural_gas');
-    assert.equal(resolvePlantType('battery_storage'), 'battery_storage');
     assert.equal(resolvePlantType('solar'), 'solar');
     assert.equal(resolvePlantType('wind'), 'wind');
   });

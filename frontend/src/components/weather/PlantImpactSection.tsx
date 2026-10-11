@@ -33,7 +33,6 @@ const PLANT_TYPE_STORAGE_KEY = 'spotsight_selected_plant_type';
 export const VALID_PLANT_TYPES: readonly PlantType[] = [
   'nuclear',
   'natural_gas',
-  'battery_storage',
   'solar',
   'wind',
 ] as const;
@@ -196,11 +195,8 @@ export function PlantImpactSection({
           >
             <option value="nuclear">Nuclear</option>
             <option value="natural_gas">Natural gas</option>
-            <option value="battery_storage">Battery storage</option>
-            <optgroup label="Renewables">
-              <option value="solar">Solar</option>
-              <option value="wind">Wind</option>
-            </optgroup>
+            <option value="solar">Solar</option>
+            <option value="wind">Wind</option>
           </select>
         </div>
       </div>
