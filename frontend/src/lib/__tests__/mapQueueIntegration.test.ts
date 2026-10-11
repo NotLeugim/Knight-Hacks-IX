@@ -7,6 +7,7 @@ import {
   filterAnomalies,
 } from '../triageSelectors';
 import { getSeverityTheme } from '../severity';
+import { toStatus, STATUS_CONFIG } from '../status';
 import { TriageAnomaly } from '../triageTypes';
 
 const TEST_ANOMALIES: TriageAnomaly[] = [
@@ -180,3 +181,87 @@ describe('Map Zoom-Restore Overview Controller', () => {
     assert.equal(clearResult.nextState.savedOverview, null);
   });
 });
+
+describe('Waypoint Status & Anomaly Matching Regression Tests', () => {
+  const anomalies: TriageAnomaly[] = [
+    {
+      id: 'AN001',
+      title: 'Low Telemetry Signal',
+      description: 'RSSI drop',
+      severity: 'LOW',
+      location_id: 'WP05',
+      operator_review_required: false,
+      timestamp: '2026-09-06T10:03:24',
+    },
+    {
+      id: 'AN014',
+      title: 'Critical Overheat',
+      description: 'Temp high',
+      severity: 'CRITICAL',
+      location_id: 'WP07',
+      operator_review_required: true,
+      timestamp: '2026-09-08T02:08:00',
+    },
+    {
+      id: 'AN006',
+      title: 'Medium Vibration',
+      description: 'Bearing rattle',
+      severity: 'MEDIUM',
+      location_id: 'WP07',
+      operator_review_required: false,
+      timestamp: '2026-09-03T10:21:42',
+    },
+  ];
+
+  it('waypoint with zero matching anomalies resolves to nominal without throwing', () => {
+    const wp01 = { id: 'WP01', description: 'Ingress dock', assetId: 'DOCK-1' };
+    const matching = anomalies.filter(
+      (a) => normalizeWaypointId(a.location_id) === wp01.id
+    );
+    assert.equal(matching.length, 0);
+
+    // Must not throw when reading primaryAnomaly
+    const primaryAnomaly = matching && matching.length > 0 ? matching[0] : undefined;
+    const description = primaryAnomaly?.description ?? wp01.description;
+    const assetId = primaryAnomaly?.asset_id ?? wp01.assetId;
+    const status = toStatus(matching);
+
+    assert.equal(status, 'nominal');
+    assert.equal(description, 'Ingress dock');
+    assert.equal(assetId, 'DOCK-1');
+    assert.equal(STATUS_CONFIG[status].label, 'Nominal');
+    assert.equal(STATUS_CONFIG[status].symbol, '●');
+  });
+
+  it('waypoint with a single anomaly maps correctly to warning or critical', () => {
+    const wp05 = { id: 'WP05', description: 'Sensor post', assetId: 'POST-5' };
+    const matching = anomalies.filter(
+      (a) => normalizeWaypointId(a.location_id) === wp05.id
+    );
+    assert.equal(matching.length, 1);
+
+    const primaryAnomaly = matching && matching.length > 0 ? matching[0] : undefined;
+    const description = primaryAnomaly?.description ?? wp05.description;
+    const assetId = primaryAnomaly?.asset_id ?? wp05.assetId;
+    const status = toStatus(matching);
+
+    assert.equal(status, 'warning');
+    assert.equal(description, 'RSSI drop');
+    assert.equal(STATUS_CONFIG[status].label, 'Warning');
+    assert.equal(STATUS_CONFIG[status].symbol, '▲');
+  });
+
+  it('waypoint with multiple anomalies resolves to worst severity (CRITICAL beats MEDIUM)', () => {
+    const wp07 = { id: 'WP07', description: 'Heat Exchanger', assetId: 'HX-204' };
+    const matching = anomalies.filter(
+      (a) => normalizeWaypointId(a.location_id) === wp07.id
+    );
+    assert.equal(matching.length, 2);
+
+    const status = toStatus(matching);
+    assert.equal(status, 'critical');
+    assert.equal(STATUS_CONFIG[status].label, 'Critical-High Priority');
+    assert.equal(STATUS_CONFIG[status].symbol, '■');
+  });
+});
+

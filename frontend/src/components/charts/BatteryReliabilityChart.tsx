@@ -107,7 +107,7 @@ export default function BatteryReliabilityChart({ data }: BatteryReliabilityChar
               border: '1px solid color-mix(in srgb, var(--color-danger) 30%, transparent)',
             }}
           >
-            <span>🛑</span> &lt;30% Danger
+            <span>■</span> &lt;30% Danger
           </span>
           <span
             className="text-xs px-2.5 py-1 rounded-md font-medium flex items-center gap-1"

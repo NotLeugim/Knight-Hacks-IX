@@ -91,7 +91,7 @@ export const STATUS_CONFIG: Record<
     borderClass: 'border-red-500/30',
     cardBorderLeftClass: 'border-l-red-500',
     label: 'Critical-High Priority',
-    symbol: '🛑',
+    symbol: '■',
     icon: AlertOctagon,
     contrastRatio: '5.29:1',
     pulse: true,

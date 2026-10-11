@@ -89,7 +89,7 @@ export const STATUS_MAP: Record<StatusType, StatusConfig> = {
     bgFill: colors.statusFills.critical.bg,
     borderTint: colors.statusFills.critical.border,
     contrastRatio: colors.statusFills.critical.contrastRatio,
-    symbol: '🛑',
+    symbol: '■',
   },
   HIGH: {
     label: 'CRITICAL',
@@ -97,7 +97,7 @@ export const STATUS_MAP: Record<StatusType, StatusConfig> = {
     bgFill: colors.statusFills.high.bg,
     borderTint: colors.statusFills.high.border,
     contrastRatio: colors.statusFills.high.contrastRatio,
-    symbol: '🛑',
+    symbol: '■',
   },
 };
 
@@ -164,7 +164,7 @@ export interface StatusBadgeProps extends React.HTMLAttributes<HTMLSpanElement> 
 
 /**
  * StatusBadge: solid high-contrast capsule fill with border, distinct shape icon, and label.
- * Color-blind accessible with distinct shapes per status level (● Circle, ▲ Triangle, 🛑 Octagon).
+ * Color-blind accessible with distinct shapes per status level (● Circle, ▲ Triangle, ■ Square).
  * All variants exceed WCAG AA 4.5:1 contrast ratio.
  */
 export function StatusBadge({

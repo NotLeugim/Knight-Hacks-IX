@@ -1424,12 +1424,12 @@ export default function InteractiveFloorPlan({
         );
       });
 
-      // Map matching anomalies to 3 levels (CRITICAL/HIGH -> critical, MEDIUM/LOW -> warning)
+      // Map matching anomalies to 3 levels (CRITICAL/HIGH -> critical, MEDIUM/LOW -> warning, none -> nominal)
       const status: WaypointStatus = toStatus(matchingAnomalies);
 
-      const primaryAnomaly = matchingAnomalies[0];
-      const description = primaryAnomaly.description || wp.description;
-      const assetId = primaryAnomaly.asset_id || wp.assetId;
+      const primaryAnomaly = matchingAnomalies && matchingAnomalies.length > 0 ? matchingAnomalies[0] : undefined;
+      const description = primaryAnomaly?.description ?? wp.description;
+      const assetId = primaryAnomaly?.asset_id ?? wp.assetId;
 
       return {
         ...wp,
@@ -1670,7 +1670,7 @@ export default function InteractiveFloorPlan({
                 title="3-level heat ramp: Green (Nominal) → Yellow (Warning) → Red (Critical)"
               />
               <span className="text-[10px] text-red-400 font-bold flex items-center gap-1">
-                High <span>🛑</span>
+                High <span>■</span>
               </span>
             </div>
           </div>
@@ -1783,7 +1783,7 @@ export default function InteractiveFloorPlan({
           <div className="flex items-center gap-1.5">
             <span className="relative flex h-2.5 w-2.5 items-center justify-center">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-80"></span>
-              <span className="text-[10px] text-red-400">🛑</span>
+              <span className="text-[10px] text-red-400">■</span>
             </span>
             <span className="text-red-300 font-bold">
               Critical-High Priority ({criticalWaypoints.length > 0 ? criticalWaypoints.map((w) => w.id).join(', ') : 'None'})
@@ -2297,7 +2297,7 @@ export default function InteractiveFloorPlan({
                 <div className="font-semibold text-amber-300">
                   {selectedIssue
                     ? (selectedIssue as any).temperature ||
-                      selectedIssue.description.match(/(\+?\d+(?:\.\d+)?\s*°C)/i)?.[1] ||
+                      selectedIssue.description?.match(/(\+?\d+(?:\.\d+)?\s*°C)/i)?.[1] ||
                       (selectedIssue.anomaly_type === 'ABNORMAL_TEMPERATURE' ? '88.5 °C' : selectedWp.temperature)
                     : selectedWp.temperature}
                 </div>
@@ -2310,7 +2310,7 @@ export default function InteractiveFloorPlan({
                 <div className="font-semibold text-sky-200">
                   {selectedIssue
                     ? (selectedIssue as any).vibration ||
-                      selectedIssue.description.match(/(\d+(?:\.\d+)?\s*(?:mm\/s|Hz))/i)?.[1] ||
+                      selectedIssue.description?.match(/(\d+(?:\.\d+)?\s*(?:mm\/s|Hz))/i)?.[1] ||
                       (selectedIssue.anomaly_type?.includes('VIBRATION') ? '1.82 mm/s' : selectedWp.vibration)
                     : selectedWp.vibration}
                 </div>
