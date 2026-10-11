@@ -23,6 +23,7 @@ import {
   getSeverityTheme,
   SeverityTheme,
 } from '@/lib/severity';
+import { toStatus, getStatusTokens, STATUS_CONFIG, CheckCircle2 as CheckCircleIcon } from '@/lib/status';
 import { normalizeWaypointId, getAnomalyWaypointId } from '@/lib/triageSelectors';
 import { useTriage } from '@/context/TriageContext';
 
@@ -122,13 +123,14 @@ const AnomalyCard = memo(function AnomalyCard({
             </span>
             <span
               className={cn(
-                'text-[10px] font-bold px-1.5 py-0.5 rounded tracking-wider border uppercase shrink-0',
+                'text-[10px] font-bold px-1.5 py-0.5 rounded tracking-wider border uppercase shrink-0 flex items-center gap-1',
                 theme.textColor,
                 theme.badgeBg,
                 theme.badgeBorder
               )}
             >
-              {theme.label}
+              <span className="text-[9px]">{STATUS_CONFIG[toStatus(item.severity)].symbol}</span>
+              <span>{theme.label}</span>
             </span>
             {item.operator_review_required && (
               <span
@@ -357,7 +359,20 @@ export default function TriageQueue({
               <span className="text-xs font-semibold text-slate-300 tracking-tight">
                 Active Issues
               </span>
-              <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-red-500/20 text-red-400 font-mono">
+              <span
+                className={cn(
+                  'text-[10px] font-bold px-1.5 py-0.2 rounded-full font-mono border',
+                  filteredAnomalies.length === 0
+                    ? 'bg-green-500/20 text-green-400 border-green-500/30'
+                    : STATUS_CONFIG[toStatus(filteredAnomalies)].bgClass,
+                  filteredAnomalies.length === 0
+                    ? 'text-green-400'
+                    : STATUS_CONFIG[toStatus(filteredAnomalies)].textClass,
+                  filteredAnomalies.length === 0
+                    ? 'border-green-500/30'
+                    : STATUS_CONFIG[toStatus(filteredAnomalies)].borderClass
+                )}
+              >
                 {filteredAnomalies.length}
                 {filteredAnomalies.length !== anomalies.length && ` / ${anomalies.length}`}
               </span>
@@ -515,7 +530,7 @@ export default function TriageQueue({
           filteredAnomalies.length === 0 &&
           !selectedWaypointId && (
             <EmptyState
-              icon={<AlertTriangle className="w-6 h-6 text-green-500" />}
+              icon={<CheckCircleIcon className="w-6 h-6 text-green-400" />}
               title="Queue Clear · Nominal"
               description="No unresolved anomalies flagged. Fleet telemetry is operating within nominal thresholds."
               className="py-8"

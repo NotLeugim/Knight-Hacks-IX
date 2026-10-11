@@ -42,71 +42,82 @@ export const colors = {
   textSecondary: '#9AA4AD',      // Secondary / subheaders / table headers (>= 5.5:1 on panel)
   textMuted: '#6B747C',          // Muted labels / disabled states
 
-  // Status Colors (Solid fills & high contrast texts >= 4.5:1 verified)
+  // Status Colors (Standardized 3-level system: Green / Yellow / Red)
   status: {
-    success: '#4CC38A',          // Nominal / Operational / Success
-    nominal: '#4CC38A',          // Alias for success
-    warn: '#F5C842',             // Warning / Medium risk
-    critical: '#F0716B',         // Critical / High risk
-    info: '#6BB6E8',             // Informational / Low risk
-    stopped: '#6B747C',          // Stopped / Inactive / Offline
+    nominal: '#4CC38A',          // 1. Green: Nominal / Operational / Success
+    success: '#4CC38A',          // Alias for nominal
+    warn: '#F5C842',             // 2. Yellow: Warning (lower priority issue)
+    warning: '#F5C842',          // Alias for warn
+    medium: '#F5C842',           // Lower priority issue -> Warning
+    low: '#F5C842',              // Lower priority issue -> Warning
+    info: '#F5C842',             // Lower priority issue -> Warning
+    critical: '#F0716B',         // 3. Red: Critical-High Priority (high priority issue)
+    high: '#F0716B',             // High priority issue -> Critical
+    stopped: '#4CC38A',          // Nominal / safe state -> Green
   },
 
   // Status Badge High-Contrast Container Fills (Calculated >= 4.5:1 contrast against text)
+  // Standardized to 3 accessible color tokens: Green / Yellow / Red
   statusFills: {
-    success: {
-      bg: '#113523',             // Dark green fill
+    nominal: {
+      bg: '#113523',             // 1. Dark green fill
       text: '#4CC38A',           // 6.09:1 contrast ratio
       border: 'rgba(76, 195, 138, 0.40)',
       contrastRatio: '6.09:1',
     },
-    nominal: {
+    success: {
       bg: '#113523',
-      text: '#4CC38A',           // 6.09:1 contrast ratio
+      text: '#4CC38A',
       border: 'rgba(76, 195, 138, 0.40)',
       contrastRatio: '6.09:1',
+    },
+    stopped: {
+      bg: '#113523',             // Nominal safe state -> Green
+      text: '#4CC38A',
+      border: 'rgba(76, 195, 138, 0.40)',
+      contrastRatio: '6.09:1',
+    },
+    warning: {
+      bg: '#3D2E0B',             // 2. Dark amber/yellow fill
+      text: '#F5C842',           // 8.30:1 contrast ratio
+      border: 'rgba(245, 200, 66, 0.40)',
+      contrastRatio: '8.30:1',
     },
     warn: {
-      bg: '#3D2E0B',             // Dark amber fill
-      text: '#F5C842',           // 8.30:1 contrast ratio
+      bg: '#3D2E0B',
+      text: '#F5C842',
       border: 'rgba(245, 200, 66, 0.40)',
       contrastRatio: '8.30:1',
     },
     medium: {
       bg: '#3D2E0B',
-      text: '#F5C842',           // 8.30:1 contrast ratio
+      text: '#F5C842',
+      border: 'rgba(245, 200, 66, 0.40)',
+      contrastRatio: '8.30:1',
+    },
+    low: {
+      bg: '#3D2E0B',             // Lower priority issue merged into Yellow
+      text: '#F5C842',
+      border: 'rgba(245, 200, 66, 0.40)',
+      contrastRatio: '8.30:1',
+    },
+    info: {
+      bg: '#3D2E0B',             // Informational note / lower priority -> Yellow
+      text: '#F5C842',
       border: 'rgba(245, 200, 66, 0.40)',
       contrastRatio: '8.30:1',
     },
     critical: {
-      bg: '#3E1B19',             // Dark red fill
+      bg: '#3E1B19',             // 3. Dark red fill
       text: '#F0716B',           // 5.29:1 contrast ratio
       border: 'rgba(240, 113, 107, 0.40)',
       contrastRatio: '5.29:1',
     },
     high: {
-      bg: '#3E1B19',
-      text: '#F0716B',           // 5.29:1 contrast ratio
+      bg: '#3E1B19',             // High priority issue merged into Red
+      text: '#F0716B',
       border: 'rgba(240, 113, 107, 0.40)',
       contrastRatio: '5.29:1',
-    },
-    info: {
-      bg: '#122B3F',             // Dark blue-cyan fill
-      text: '#6BB6E8',           // 6.57:1 contrast ratio
-      border: 'rgba(107, 182, 232, 0.40)',
-      contrastRatio: '6.57:1',
-    },
-    low: {
-      bg: '#122B3F',
-      text: '#6BB6E8',           // 6.57:1 contrast ratio
-      border: 'rgba(107, 182, 232, 0.40)',
-      contrastRatio: '6.57:1',
-    },
-    stopped: {
-      bg: '#252A2E',             // Dark slate fill
-      text: '#B0B8C0',           // 7.49:1 contrast ratio
-      border: 'rgba(176, 184, 192, 0.30)',
-      contrastRatio: '7.49:1',
     },
   },
 
@@ -151,16 +162,16 @@ export const colors = {
     '#F6E27A',                   // 5: Yellow
   ] as const,
 
-  // Chart Series Colors
+  // Chart Series Colors (3 levels: attempted/warning, succeeded/nominal, failed/critical)
   chart: {
-    attempted: '#6BB6E8',        // info
-    succeeded: '#4CC38A',        // success
-    failed: '#F0716B',           // critical
+    attempted: '#F5C842',        // warning
+    succeeded: '#4CC38A',        // nominal (Green)
+    failed: '#F0716B',           // critical (Red)
   },
 
   // Map & Waypoints
   map: {
-    waypoint: '#3B8FD9',         // Map waypoint marker blue
+    waypoint: '#4CC38A',         // Map nominal waypoint marker green
     path: '#3F8FC9',
     robot: '#F5C842',
   },
@@ -237,12 +248,13 @@ export type SpacingToken = typeof spacing;
 export type ShapesToken = typeof shapes;
 
 export type StatusType =
+  | 'NOMINAL'
+  | 'WARNING'
+  | 'CRITICAL'
   | 'SUCCESS'
   | 'STOPPED'
   | 'WARN'
   | 'INFO'
-  | 'NOMINAL'
-  | 'CRITICAL'
   | 'HIGH'
   | 'MEDIUM'
   | 'LOW';

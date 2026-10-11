@@ -6,6 +6,7 @@ import { AnalyticsResponse, MissionConfidenceItem } from '@/lib/analyticsTypes';
 import { analyticsFixture } from '@/lib/analyticsFixture';
 import { Compass, CheckCircle2, AlertTriangle, XCircle, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { STATUS_CONFIG } from '@/lib/status';
 
 interface MissionRowItem {
   missionId: string;
@@ -136,12 +137,11 @@ export default function MissionList({
               const isParadox = m.reportedStatus === 'COMPLETED' && m.actionsFailed > 0;
               const isClean = m.reportedStatus === 'COMPLETED' && m.actionsFailed === 0;
 
-              const confColor =
-                m.confidenceScore >= 80
-                  ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
-                  : m.confidenceScore >= 60
-                  ? 'text-amber-400 bg-amber-500/10 border-amber-500/20'
-                  : 'text-red-400 bg-red-500/10 border-red-500/20';
+              const missionStatus = isFailed ? 'critical' : isParadox ? 'warning' : 'nominal';
+              const statusToken = STATUS_CONFIG[missionStatus];
+
+              const confStatus = m.confidenceScore >= 80 ? 'nominal' : m.confidenceScore >= 60 ? 'warning' : 'critical';
+              const confToken = STATUS_CONFIG[confStatus];
 
               return (
                 <tr
@@ -180,11 +180,9 @@ export default function MissionList({
                     <span
                       className={cn(
                         'inline-flex items-center gap-1 text-[11px] font-mono px-1.5 py-0.5 rounded border',
-                        isClean
-                          ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
-                          : isParadox
-                          ? 'text-amber-400 bg-amber-500/10 border-amber-500/20'
-                          : 'text-red-400 bg-red-500/10 border-red-500/20'
+                        statusToken.textClass,
+                        statusToken.bgClass,
+                        statusToken.borderClass
                       )}
                     >
                       {isClean ? (
@@ -200,7 +198,7 @@ export default function MissionList({
 
                   {/* Actual Result */}
                   <td className="py-3 px-3 font-mono">
-                    <span className={cn(isParadox && 'text-amber-300 font-medium')}>
+                    <span className={cn(isParadox ? 'text-yellow-400 font-medium' : isFailed ? 'text-red-400 font-medium' : 'text-green-400 font-medium')}>
                       {m.actionsSucceeded} of {m.totalActions} worked
                     </span>
                   </td>
@@ -209,7 +207,7 @@ export default function MissionList({
                   <td className="py-3 px-2 font-mono text-center">
                     <span
                       className={cn(
-                        m.actionsFailed > 0 ? 'text-amber-400 font-bold' : 'text-orbit-text-muted'
+                        m.actionsFailed > 0 ? 'text-yellow-400 font-bold' : 'text-green-400 font-semibold'
                       )}
                     >
                       {m.actionsFailed}
@@ -220,7 +218,7 @@ export default function MissionList({
                   <td className="py-3 px-2 font-mono text-center">
                     <span
                       className={cn(
-                        m.anomalyCount > 0 ? 'text-orbit-text' : 'text-orbit-text-muted'
+                        m.anomalyCount > 0 ? 'text-yellow-400 font-bold' : 'text-green-400 font-semibold'
                       )}
                     >
                       {m.anomalyCount}
@@ -232,7 +230,9 @@ export default function MissionList({
                     <span
                       className={cn(
                         'inline-block text-[11px] font-mono px-2 py-0.5 rounded border',
-                        confColor
+                        confToken.textClass,
+                        confToken.bgClass,
+                        confToken.borderClass
                       )}
                     >
                       {m.confidenceScore}/100

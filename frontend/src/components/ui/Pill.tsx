@@ -6,7 +6,7 @@ import { colors } from '@/styles/tokens';
 
 export interface PillProps extends React.HTMLAttributes<HTMLSpanElement> {
   children: React.ReactNode;
-  variant?: 'live' | 'stub' | 'confidence' | 'nominal' | 'warn' | 'critical' | 'info' | 'neutral' | 'outline';
+  variant?: 'live' | 'stub' | 'confidence' | 'nominal' | 'warning' | 'warn' | 'critical' | 'info' | 'neutral' | 'outline';
   size?: 'sm' | 'md';
   pulse?: boolean;
 }
@@ -25,7 +25,7 @@ export function Pill({
     md: 'text-xs px-2.5 py-1 gap-1.5 font-semibold',
   }[size];
 
-  // Guaranteed WCAG AA >= 4.5:1 contrast mappings
+  // Guaranteed WCAG AA >= 4.5:1 contrast mappings (3-level status colors: green, yellow, red)
   const variantStyles: Record<string, { bg: string; text: string; border?: string }> = {
     live: {
       bg: colors.pillFills.live.bg,
@@ -46,6 +46,11 @@ export function Pill({
       bg: colors.statusFills.nominal.bg,
       text: colors.statusFills.nominal.text,
       border: colors.statusFills.nominal.border,
+    },
+    warning: {
+      bg: colors.statusFills.warning.bg,
+      text: colors.statusFills.warning.text,
+      border: colors.statusFills.warning.border,
     },
     warn: {
       bg: colors.statusFills.warn.bg,

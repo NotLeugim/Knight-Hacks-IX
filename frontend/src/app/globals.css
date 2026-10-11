@@ -26,9 +26,10 @@
   --color-status-success: #4CC38A;
   --color-status-nominal: #4CC38A;
   --color-status-warn: #F5C842;
+  --color-status-warning: #F5C842;
   --color-status-critical: #F0716B;
-  --color-status-info: #6BB6E8;
-  --color-status-stopped: #6B747C;
+  --color-status-info: #F5C842;
+  --color-status-stopped: #4CC38A;
 
   --color-kpi-1: #2B5FC7;
   --color-kpi-2: #3F8FC9;
@@ -36,10 +37,10 @@
   --color-kpi-4: #8AD6CF;
   --color-kpi-5: #F6E27A;
 
-  --color-chart-attempted: #6BB6E8;
+  --color-chart-attempted: #F5C842;
   --color-chart-succeeded: #4CC38A;
   --color-chart-failed: #F0716B;
-  --color-map-waypoint: #3B8FD9;
+  --color-map-waypoint: #4CC38A;
 
   --radius-panel: 12px;
   --radius-button: 8px;
@@ -73,13 +74,14 @@
   --orbit-text-secondary: #9AA4AD;
   --orbit-text-muted: #6B747C;
 
-  /* Status Colors */
+  /* Status Colors (Standardized 3 levels) */
   --orbit-status-success: #4CC38A;
   --orbit-status-nominal: #4CC38A;
   --orbit-status-warn: #F5C842;
+  --orbit-status-warning: #F5C842;
   --orbit-status-critical: #F0716B;
-  --orbit-status-info: #6BB6E8;
-  --orbit-status-stopped: #6B747C;
+  --orbit-status-info: #F5C842;
+  --orbit-status-stopped: #4CC38A;
 
   /* KPI Accent Bars (Ordered) */
   --orbit-kpi-1: #2B5FC7;
@@ -89,10 +91,10 @@
   --orbit-kpi-5: #F6E27A;
 
   /* Chart & Map */
-  --orbit-chart-attempted: #6BB6E8;
+  --orbit-chart-attempted: #F5C842;
   --orbit-chart-succeeded: #4CC38A;
   --orbit-chart-failed: #F0716B;
-  --orbit-map-waypoint: #3B8FD9;
+  --orbit-map-waypoint: #4CC38A;
 
   /* Legacy variable mappings for backwards compatibility */
   --color-bg-primary: #101214;

@@ -39,12 +39,13 @@ import {
   BoundingBox,
 } from '@/lib/actionMode';
 import { actionsFixture } from '@/lib/actionsFixture';
+import { toStatus, STATUS_CONFIG, type Status } from '@/lib/status';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
 export type ActiveFloor = 'Floor 1' | 'Floor 2';
 
-export type WaypointStatus = 'nominal' | 'warning' | 'critical' | 'info';
+export type WaypointStatus = 'nominal' | 'warning' | 'critical';
 
 export type OverlayMode = 'pathfinding' | 'action';
 
@@ -484,18 +485,18 @@ function createBlueprintPin(
   let isWarning = wp.status === 'warning';
   let isNominal = wp.status === 'nominal';
 
-  let color = '#38bdf8'; // Electric blue default
-  let glow = 'rgba(56, 189, 248, 0.6)';
+  let color = '#22c55e'; // Green default (Nominal)
+  let glow = 'rgba(34, 197, 94, 0.8)';
 
   if (isCritical) {
     color = '#ef4444';
     glow = 'rgba(239, 68, 68, 0.9)';
   } else if (isWarning) {
-    color = '#f59e0b';
-    glow = 'rgba(245, 158, 11, 0.8)';
-  } else if (isNominal) {
-    color = '#10b981';
-    glow = 'rgba(16, 185, 129, 0.8)';
+    color = '#eab308';
+    glow = 'rgba(234, 179, 8, 0.8)';
+  } else {
+    color = '#22c55e';
+    glow = 'rgba(34, 197, 94, 0.8)';
   }
 
   // Exact anchor positioning: iconSize is [32, 42], iconAnchor is [16, 42].
@@ -560,9 +561,13 @@ function createBlueprintPin(
         display: flex;
         align-items: center;
         justify-content: center;
-        ${isSelected ? 'transform: scale(1.2); box-shadow: 0 0 24px #ffffff;' : ''}
-      ">
-        <span style="width: 8px; height: 8px; border-radius: 9999px; background-color: #0c2340;"></span>
+        ${
+          isCritical
+            ? '<span style="width: 8px; height: 8px; border-radius: 2px; background-color: #0c2340;"></span>'
+            : isWarning
+            ? '<span style="width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-bottom: 7px solid #0c2340;"></span>'
+            : '<span style="width: 8px; height: 8px; border-radius: 9999px; background-color: #0c2340;"></span>'
+        }
       </div>
 
       <!-- Pin Tip Triangle pointing down to exact coord -->
@@ -1419,23 +1424,8 @@ export default function InteractiveFloorPlan({
         );
       });
 
-      if (matchingAnomalies.length === 0) return wp;
-
-      // Check if any matching anomaly is CRITICAL / HIGH / WARNING
-      const hasCritical = matchingAnomalies.some(
-        (a) => a.severity?.toUpperCase() === 'CRITICAL'
-      );
-      const hasWarning = matchingAnomalies.some((a) => {
-        const s = a.severity?.toUpperCase();
-        return s === 'HIGH' || s === 'WARNING' || s === 'MEDIUM';
-      });
-
-      let status: WaypointStatus = 'nominal';
-      if (hasCritical) {
-        status = 'critical';
-      } else if (hasWarning) {
-        status = 'warning';
-      }
+      // Map matching anomalies to 3 levels (CRITICAL/HIGH -> critical, MEDIUM/LOW -> warning)
+      const status: WaypointStatus = toStatus(matchingAnomalies);
 
       const primaryAnomaly = matchingAnomalies[0];
       const description = primaryAnomaly.description || wp.description;
@@ -1669,15 +1659,19 @@ export default function InteractiveFloorPlan({
               <span>Failure rate:</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] text-emerald-400 font-semibold">Low</span>
+              <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+                <span>●</span> Low (0%)
+              </span>
               <div
                 className="w-24 sm:w-32 h-2.5 rounded-full shadow-inner border border-sky-700/60"
                 style={{
-                  background: 'linear-gradient(to right, #10b981 0%, #eab308 25%, #f97316 60%, #dc2626 100%)',
+                  background: 'linear-gradient(to right, #10b981 0%, #eab308 50%, #ef4444 100%)',
                 }}
-                title="Continuous heat ramp: Green (Low/0%) → Yellow → Orange → Red (High failure rate)"
+                title="3-level heat ramp: Green (Nominal) → Yellow (Warning) → Red (Critical)"
               />
-              <span className="text-[10px] text-red-400 font-bold">High</span>
+              <span className="text-[10px] text-red-400 font-bold flex items-center gap-1">
+                High <span>🛑</span>
+              </span>
             </div>
           </div>
 
@@ -1775,20 +1769,24 @@ export default function InteractiveFloorPlan({
       ) : (
         <div className="absolute top-4 right-4 z-[1000] hidden md:flex items-center gap-3.5 bg-[#0c2340]/95 backdrop-blur-md px-4 py-1.5 rounded-lg border border-sky-700/80 shadow-xl text-xs font-mono">
           <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#10b981]"></span>
-            <span className="text-slate-200 font-semibold">Nominal</span>
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#22c55e]"></span>
+            <span className="text-slate-200 font-semibold flex items-center gap-1">
+              <span>●</span> Nominal
+            </span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_#f59e0b]"></span>
-            <span className="text-slate-200 font-semibold">Warning</span>
+            <span className="text-yellow-400 text-xs">▲</span>
+            <span className="text-slate-200 font-semibold flex items-center gap-1">
+              Warning
+            </span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="relative flex h-2.5 w-2.5">
+            <span className="relative flex h-2.5 w-2.5 items-center justify-center">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-80"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500 shadow-[0_0_10px_#ef4444]"></span>
+              <span className="text-[10px] text-red-400">🛑</span>
             </span>
             <span className="text-red-300 font-bold">
-              Critical ({criticalWaypoints.length > 0 ? criticalWaypoints.map((w) => w.id).join(', ') : 'None'})
+              Critical-High Priority ({criticalWaypoints.length > 0 ? criticalWaypoints.map((w) => w.id).join(', ') : 'None'})
             </span>
           </div>
         </div>
@@ -2256,17 +2254,18 @@ export default function InteractiveFloorPlan({
                   {selectedWp.id}
                 </span>
               )}
-              <span
-                className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ${
-                  (selectedIssue?.severity?.toUpperCase() === 'CRITICAL' || selectedWp.status === 'critical')
-                    ? 'bg-red-500/20 text-red-400 border border-red-500/50'
-                    : (selectedIssue?.severity?.toUpperCase() === 'HIGH' || selectedIssue?.severity?.toUpperCase() === 'MEDIUM' || selectedWp.status === 'warning')
-                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/50'
-                    : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50'
-                }`}
-              >
-                {selectedIssue ? selectedIssue.severity : selectedWp.status}
-              </span>
+              {(() => {
+                const drawerStatus = toStatus(selectedIssue ? selectedIssue.severity : selectedWp.status);
+                const token = STATUS_CONFIG[drawerStatus];
+                return (
+                  <span
+                    className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded border flex items-center gap-1 ${token.textClass} ${token.bgClass} ${token.borderClass}`}
+                  >
+                    <span>{token.symbol}</span>
+                    <span>{token.label}</span>
+                  </span>
+                );
+              })()}
               <div>
                 <h4 className="text-xs font-bold text-white leading-tight">
                   {selectedIssue ? selectedIssue.title : selectedWp.name}

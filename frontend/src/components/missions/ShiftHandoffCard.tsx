@@ -5,6 +5,7 @@ import { fetchShiftHandoff } from '@/lib/api';
 import { MissionSummary } from '@/lib/summaryTypes';
 import { Clock, Bot, Cpu, CheckCircle2, AlertTriangle, XCircle, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { STATUS_CONFIG } from '@/lib/status';
 import { formatBullet } from './MissionDetail';
 
 interface ShiftHandoffCardProps {
@@ -106,18 +107,11 @@ export default function ShiftHandoffCard({
             const isParadox = m.reportedStatus === 'COMPLETED' && (m.facts?.failedActions?.length ?? 0) > 0;
             const isGemini = m.generatedBy === 'gemini';
 
-            const statusClass = isReportedFailed
-              ? 'text-red-400 bg-red-500/10 border-red-500/20'
-              : isParadox
-              ? 'text-amber-400 bg-amber-500/10 border-amber-500/20'
-              : 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
+            const missionStatus = isReportedFailed ? 'critical' : isParadox ? 'warning' : 'nominal';
+            const statusToken = STATUS_CONFIG[missionStatus];
 
-            const confColor =
-              m.confidence >= 80
-                ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
-                : m.confidence >= 60
-                ? 'text-amber-400 bg-amber-500/10 border-amber-500/20'
-                : 'text-red-400 bg-red-500/10 border-red-500/20';
+            const confStatus = m.confidence >= 80 ? 'nominal' : m.confidence >= 60 ? 'warning' : 'critical';
+            const confToken = STATUS_CONFIG[confStatus];
 
             return (
               <div
@@ -144,7 +138,9 @@ export default function ShiftHandoffCard({
                       <span
                         className={cn(
                           'text-[10px] font-mono px-1.5 py-0.5 rounded border flex items-center gap-1',
-                          statusClass
+                          statusToken.textClass,
+                          statusToken.bgClass,
+                          statusToken.borderClass
                         )}
                       >
                         {isReportedFailed ? (
@@ -159,7 +155,9 @@ export default function ShiftHandoffCard({
                       <span
                         className={cn(
                           'text-[10px] font-mono px-1.5 py-0.5 rounded border',
-                          confColor
+                          confToken.textClass,
+                          confToken.bgClass,
+                          confToken.borderClass
                         )}
                       >
                         {m.confidence}/100

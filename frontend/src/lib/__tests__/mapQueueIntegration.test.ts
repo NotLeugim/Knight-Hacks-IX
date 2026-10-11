@@ -64,7 +64,7 @@ describe('Map <-> Queue Integration Logic', () => {
     const summaries = computeWaypointSummaries(TEST_ANOMALIES);
     assert.equal(summaries['WP07'].worstSeverity, 'CRITICAL');
     assert.equal(summaries['WP07'].count, 2);
-    assert.equal(getSeverityTheme(summaries['WP07'].worstSeverity).textColor, 'text-red-500');
+    assert.equal(getSeverityTheme(summaries['WP07'].worstSeverity).textColor, 'text-red-400');
   });
 
   it('Queue card click locates the matching waypoint even with unnormalized IDs', () => {
@@ -75,7 +75,7 @@ describe('Map <-> Queue Integration Logic', () => {
 
     const summaries = computeWaypointSummaries(TEST_ANOMALIES);
     assert.equal(summaries[targetWp].worstSeverity, 'HIGH');
-    assert.equal(getSeverityTheme(summaries[targetWp].worstSeverity).textColor, 'text-orange-500');
+    assert.equal(getSeverityTheme(summaries[targetWp].worstSeverity).textColor, 'text-red-400');
   });
 
   it('Clearing filter restores complete queue in original backend order', () => {
