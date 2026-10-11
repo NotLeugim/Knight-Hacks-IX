@@ -8,6 +8,7 @@ from app.api import endpoints
 from app.api import analytics as analytics_api
 from app.api import summary as summary_api
 from app.api import predictions as predictions_api
+from app.api import weather as weather_api
 from app.api import triage as triage_api
 from app.api import health as health_api
 from app.services.gemini import upload_guide
@@ -93,6 +94,7 @@ app.include_router(endpoints.router)
 app.include_router(analytics_api.router)
 app.include_router(summary_api.router)
 app.include_router(predictions_api.router)
+app.include_router(weather_api.router)
 app.include_router(triage_api.router)
 app.include_router(health_api.router)
 
