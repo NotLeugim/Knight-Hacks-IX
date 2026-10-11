@@ -13,7 +13,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'SPOTSight — Orbit Robot Fleet Management',
+  title: 'SPOTCheck — Orbit Robot Fleet Management',
   description:
     'Real-time SPOT robot mission dashboard and design system for plant operators. Native Orbit add-on styling.',
 };

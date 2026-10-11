@@ -92,7 +92,7 @@ export function TriageProvider({ children, initialAnomalies }: TriageProviderPro
         return exists ? prevSelected : null;
       });
     } catch (err) {
-      console.error('[SPOTSight] Error loading triage queue:', err);
+      console.error('[SPOTCheck] Error loading triage queue:', err);
       setError(err instanceof Error ? err.message : 'Failed to load triage queue');
     } finally {
       setIsLoading(false);

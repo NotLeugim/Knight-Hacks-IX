@@ -1,5 +1,5 @@
 /**
- * triageTypes.ts — TypeScript types for SPOTSight Anomaly Triage contracts.
+ * triageTypes.ts — TypeScript types for SPOTCheck Anomaly Triage contracts.
  * Matches GET /api/triage response schema (Issue #11 / UI-2).
  */
 

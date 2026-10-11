@@ -1,4 +1,4 @@
-# SPOTSight: NextEra Operator Dashboard
+# SPOTCheck: NextEra Operator Dashboard
 
 This project is a dashboard that translates Boston Dynamics SPOT robot mission data into a clear, readable view of locations, timestamps, readings, and anomaly flags. It surfaces operational insights hidden inside the data for non-technical plant operators.
 

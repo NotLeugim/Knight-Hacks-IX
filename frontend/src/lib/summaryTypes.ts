@@ -1,5 +1,5 @@
 /**
- * summaryTypes.ts — TypeScript interfaces for SPOTSight shift summaries and replay triggers.
+ * summaryTypes.ts — TypeScript interfaces for SPOTCheck shift summaries and replay triggers.
  * Matches backend contracts in backend/app/services/summary.py and backend/app/api/summary.py (issue #15).
  */
 
