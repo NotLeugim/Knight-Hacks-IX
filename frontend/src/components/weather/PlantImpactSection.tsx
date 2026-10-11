@@ -2,17 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import {
-  Flame,
   Atom,
-  Sun,
-  Wind,
-  BatteryCharging,
-  Layers,
   AlertTriangle,
   CheckCircle2,
-  Info,
   ShieldAlert,
-  TrendingDown,
   Activity,
   CheckSquare,
   Square,
@@ -32,11 +25,25 @@ import type {
   ImpactLevel,
   PlantImpactResponse,
   SinglePlantCurrentImpact,
-  MixCurrentImpact,
 } from '@/lib/weatherTypes';
 import { fetchPlantImpacts } from '@/lib/api';
 
 const PLANT_TYPE_STORAGE_KEY = 'spotsight_selected_plant_type';
+
+export const VALID_PLANT_TYPES: readonly PlantType[] = [
+  'nuclear',
+  'natural_gas',
+  'battery_storage',
+  'solar',
+  'wind',
+] as const;
+
+export function resolvePlantType(saved: string | null | undefined): PlantType {
+  if (saved && (VALID_PLANT_TYPES as readonly string[]).includes(saved)) {
+    return saved as PlantType;
+  }
+  return 'nuclear';
+}
 
 export interface PlantImpactSectionProps {
   latitude: number;
@@ -51,7 +58,7 @@ export function PlantImpactSection({
   locationName,
   hasOfficialAlerts,
 }: PlantImpactSectionProps) {
-  const [selectedPlant, setSelectedPlant] = useState<PlantType>('mix');
+  const [selectedPlant, setSelectedPlant] = useState<PlantType>('nuclear');
   const [impactData, setImpactData] = useState<PlantImpactResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,12 +69,11 @@ export function PlantImpactSection({
   // Load saved plant choice from localStorage
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(PLANT_TYPE_STORAGE_KEY) as PlantType | null;
-      if (
-        saved &&
-        ['mix', 'natural_gas', 'nuclear', 'solar', 'wind', 'battery_storage'].includes(saved)
-      ) {
-        setSelectedPlant(saved);
+      const saved = localStorage.getItem(PLANT_TYPE_STORAGE_KEY);
+      const resolved = resolvePlantType(saved);
+      setSelectedPlant(resolved);
+      if (saved !== resolved) {
+        localStorage.setItem(PLANT_TYPE_STORAGE_KEY, resolved);
       }
     } catch {
       // LocalStorage access restricted
@@ -152,8 +158,11 @@ export function PlantImpactSection({
         borderColor: 'var(--color-border)',
       }}
     >
-      {/* Header & Segmented Plant Type Picker */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b pb-4" style={{ borderColor: 'var(--color-border)' }}>
+      {/* Header & Plant Type Dropdown */}
+      <div
+        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4"
+        style={{ borderColor: 'var(--color-border)' }}
+      >
         <div>
           <div className="flex items-center gap-2">
             <Activity className="w-4 h-4 text-orbit-blue shrink-0" />
@@ -166,91 +175,33 @@ export function PlantImpactSection({
           </p>
         </div>
 
-        {/* Technology Selector Tabs */}
-        <div className="flex flex-wrap items-center gap-1.5 bg-panel-header p-1.5 rounded-lg border" style={{ borderColor: 'var(--color-border)' }}>
-          <button
-            type="button"
-            onClick={() => handlePlantSelect('mix')}
-            className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md transition-all ${
-              selectedPlant === 'mix'
-                ? 'bg-orbit-blue text-white shadow-sm font-semibold'
-                : 'text-orbit-text-secondary hover:text-orbit-text hover:bg-panel-header/80'
-            }`}
+        {/* Dropdown Selector */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          <label
+            htmlFor="weather-plant-select"
+            className="text-xs font-semibold uppercase tracking-wider text-orbit-text-secondary shrink-0"
           >
-            <Layers className="w-3.5 h-3.5" />
-            <span>Diverse mix</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handlePlantSelect('natural_gas')}
-            className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md transition-all ${
-              selectedPlant === 'natural_gas'
-                ? 'bg-orbit-blue text-white shadow-sm font-semibold'
-                : 'text-orbit-text-secondary hover:text-orbit-text hover:bg-panel-header/80'
-            }`}
+            Plant type
+          </label>
+          <select
+            id="weather-plant-select"
+            value={selectedPlant}
+            onChange={(e) => handlePlantSelect(e.target.value as PlantType)}
+            className="text-xs font-medium px-3 py-2 rounded-lg border bg-panel-header text-orbit-text border-panel-border focus:outline-none focus:ring-1 focus:ring-orbit-blue cursor-pointer transition-colors min-h-[38px] w-full sm:w-auto"
+            style={{
+              backgroundColor: 'var(--color-bg-primary)',
+              borderColor: 'var(--color-border)',
+              color: 'var(--color-text)',
+            }}
           >
-            <Flame className="w-3.5 h-3.5" />
-            <span>Natural gas</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handlePlantSelect('nuclear')}
-            className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md transition-all ${
-              selectedPlant === 'nuclear'
-                ? 'bg-orbit-blue text-white shadow-sm font-semibold'
-                : 'text-orbit-text-secondary hover:text-orbit-text hover:bg-panel-header/80'
-            }`}
-          >
-            <Atom className="w-3.5 h-3.5" />
-            <span>Nuclear</span>
-          </button>
-
-          {/* Grouped Renewables */}
-          <div className="flex items-center gap-1 pl-1 border-l" style={{ borderColor: 'var(--color-border)' }}>
-            <span className="text-[10px] font-mono text-orbit-text-muted px-1 uppercase tracking-wider hidden sm:inline">
-              Renewables:
-            </span>
-            <button
-              type="button"
-              onClick={() => handlePlantSelect('solar')}
-              className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-md transition-all ${
-                selectedPlant === 'solar'
-                  ? 'bg-orbit-blue text-white shadow-sm font-semibold'
-                  : 'text-orbit-text-secondary hover:text-orbit-text hover:bg-panel-header/80'
-              }`}
-            >
-              <Sun className="w-3.5 h-3.5" />
-              <span>Solar</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handlePlantSelect('wind')}
-              className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-md transition-all ${
-                selectedPlant === 'wind'
-                  ? 'bg-orbit-blue text-white shadow-sm font-semibold'
-                  : 'text-orbit-text-secondary hover:text-orbit-text hover:bg-panel-header/80'
-              }`}
-            >
-              <Wind className="w-3.5 h-3.5" />
-              <span>Wind</span>
-            </button>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => handlePlantSelect('battery_storage')}
-            className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md transition-all ${
-              selectedPlant === 'battery_storage'
-                ? 'bg-orbit-blue text-white shadow-sm font-semibold'
-                : 'text-orbit-text-secondary hover:text-orbit-text hover:bg-panel-header/80'
-            }`}
-          >
-            <BatteryCharging className="w-3.5 h-3.5" />
-            <span>Battery storage</span>
-          </button>
+            <option value="nuclear">Nuclear</option>
+            <option value="natural_gas">Natural gas</option>
+            <option value="battery_storage">Battery storage</option>
+            <optgroup label="Renewables">
+              <option value="solar">Solar</option>
+              <option value="wind">Wind</option>
+            </optgroup>
+          </select>
         </div>
       </div>
 
@@ -273,272 +224,158 @@ export function PlantImpactSection({
       {/* Main Content Area */}
       {impactData && (!loading || impactData.plantType === selectedPlant) && (
         <div className="space-y-5">
-          {/* View 1: Diverse Mix Synthesis */}
-          {impactData.plantType === 'mix' && (
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div className="flex items-center gap-2.5">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-orbit-text">
-                    Current Hour Status:
-                  </span>
-                  {renderImpactPill(impactData.current.impactLevel)}
-                </div>
-
-                <span className="text-[11px] font-mono text-orbit-text-muted">
-                  Generation Mix Portfolio
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-semibold uppercase tracking-wider text-orbit-text">
+                  Current Hour Status:
                 </span>
+                {renderImpactPill(impactData.current.impactLevel)}
               </div>
 
-              {/* Hourly Summary Callout */}
-              {Boolean((impactData.current as MixCurrentImpact).summary) && (
-                <div
-                  className="p-3.5 rounded-lg border text-xs text-orbit-text bg-panel-header/60 leading-relaxed font-sans"
-                  style={{ borderColor: 'var(--color-border)' }}
-                >
-                  <strong className="text-orbit-blue font-semibold mr-1">Current Hour Balance:</strong>
-                  {(impactData.current as MixCurrentImpact).summary}
-                </div>
-              )}
-
-              {/* 5-Source Compact Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
-                {Object.entries((impactData.current as MixCurrentImpact).components || {}).map(
-                  ([key, comp]) => {
-                    const iconMap = {
-                      natural_gas: <Flame className="w-3.5 h-3.5 text-amber-400" />,
-                      nuclear: <Atom className="w-3.5 h-3.5 text-cyan-400" />,
-                      solar: <Sun className="w-3.5 h-3.5 text-yellow-400" />,
-                      wind: <Wind className="w-3.5 h-3.5 text-emerald-400" />,
-                      battery_storage: <BatteryCharging className="w-3.5 h-3.5 text-indigo-400" />,
-                    };
-                    const nameMap = {
-                      natural_gas: 'Natural Gas',
-                      nuclear: 'Nuclear',
-                      solar: 'Solar PV',
-                      wind: 'Wind Power',
-                      battery_storage: 'Battery BESS',
-                    };
-
-                    return (
-                      <div
-                        key={key}
-                        className="p-3 rounded-lg border flex flex-col justify-between gap-2"
-                        style={{
-                          background: 'var(--color-bg-primary)',
-                          borderColor: 'var(--color-border)',
-                        }}
-                      >
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="font-semibold text-orbit-text flex items-center gap-1.5">
-                            {iconMap[key as keyof typeof iconMap]}
-                            {nameMap[key as keyof typeof nameMap]}
-                          </span>
-                        </div>
-
-                        <div>
-                          <span className="text-[11px] font-mono font-medium block text-orbit-text">
-                            {comp.status}
-                          </span>
-                          <span className="text-[10px] text-orbit-text-muted block mt-0.5 leading-snug">
-                            {comp.output}
-                          </span>
-                          <span className="text-[9px] font-mono text-orbit-text-muted block mt-1">
-                            {key === 'nuclear' || key === 'battery_storage'
-                              ? 'General engineering knowledge'
-                              : 'Typical value; varies by equipment'}
-                          </span>
-                        </div>
-
-                        <div className="pt-1 border-t border-panel-border/40">
-                          {renderImpactPill(comp.impactLevel)}
-                        </div>
-                      </div>
-                    );
-                  }
-                )}
+              <div className="text-xs font-mono font-bold text-orbit-blue">
+                {(impactData.current as SinglePlantCurrentImpact).outputLabel}
               </div>
+            </div>
 
-              {/* Balancing Explanation */}
+            {/* Nuclear Specific Callout */}
+            {impactData.plantType === 'nuclear' && (
               <div
                 className="p-4 rounded-xl border space-y-2"
                 style={{
-                  background: 'rgba(59, 130, 246, 0.04)',
-                  borderColor: 'rgba(59, 130, 246, 0.25)',
+                  background: 'rgba(6, 182, 212, 0.05)',
+                  borderColor: 'rgba(6, 182, 212, 0.3)',
                 }}
               >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                  <div className="flex items-center gap-2">
-                    <Info className="w-4 h-4 text-orbit-blue shrink-0" />
-                    <h4 className="text-xs font-semibold text-orbit-text uppercase tracking-wider">
-                      How the Generation Mix Balances Itself
-                    </h4>
-                  </div>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-panel-header border border-panel-border text-orbit-text-muted">
-                    General engineering knowledge
-                  </span>
+                <div className="flex items-center gap-2">
+                  <Atom className="w-4 h-4 text-cyan-400 shrink-0" />
+                  <h4 className="text-xs font-semibold text-cyan-300 uppercase tracking-wider">
+                    Nuclear Plant Operating Profile
+                  </h4>
                 </div>
                 <p className="text-xs text-orbit-text-secondary leading-relaxed font-sans">
-                  {(impactData.current as MixCurrentImpact).balancingExplanation}
+                  {(impactData.current as SinglePlantCurrentImpact).nuclearNotice}
+                </p>
+                <p className="text-[11px] font-mono text-cyan-400 italic">
+                  {(impactData.current as SinglePlantCurrentImpact).guidanceLabel}
                 </p>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* View 2: Single Plant Technology Detail */}
-          {impactData.plantType !== 'mix' && (
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div className="flex items-center gap-3">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-orbit-text">
-                    Current Hour Status:
-                  </span>
-                  {renderImpactPill(impactData.current.impactLevel)}
-                </div>
-
-                <div className="text-xs font-mono font-bold text-orbit-blue">
-                  {(impactData.current as SinglePlantCurrentImpact).outputLabel}
-                </div>
-              </div>
-
-              {/* Nuclear Specific Callout */}
-              {impactData.plantType === 'nuclear' && (
-                <div
-                  className="p-4 rounded-xl border space-y-2"
-                  style={{
-                    background: 'rgba(6, 182, 212, 0.05)',
-                    borderColor: 'rgba(6, 182, 212, 0.3)',
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    <Atom className="w-4 h-4 text-cyan-400 shrink-0" />
-                    <h4 className="text-xs font-semibold text-cyan-300 uppercase tracking-wider">
-                      Nuclear Plant Operating Profile
-                    </h4>
-                  </div>
-                  <p className="text-xs text-orbit-text-secondary leading-relaxed font-sans">
-                    {(impactData.current as SinglePlantCurrentImpact).nuclearNotice}
-                  </p>
-                  <p className="text-[11px] font-mono text-cyan-400 italic">
-                    {(impactData.current as SinglePlantCurrentImpact).guidanceLabel}
-                  </p>
-                </div>
-              )}
-
-              {/* Reasons with Source Labels */}
+            {/* Reasons with Source Labels */}
+            <div className="space-y-2">
+              <span className="text-xs font-semibold uppercase tracking-wider text-orbit-text-secondary block">
+                Operating Factors & Safety Observations
+              </span>
               <div className="space-y-2">
-                <span className="text-xs font-semibold uppercase tracking-wider text-orbit-text-secondary block">
-                  Operating Factors & Safety Observations
-                </span>
-                <div className="space-y-2">
-                  {((impactData.current as SinglePlantCurrentImpact).reasons || []).length === 0 ? (
-                    <div
-                      className="p-3 rounded-lg border text-xs text-orbit-text-secondary flex items-center gap-2"
-                      style={{
-                        background: 'var(--color-bg-primary)',
-                        borderColor: 'var(--color-border)',
-                      }}
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                      <span>No active weather alerts or adverse operating factors for this technology.</span>
-                    </div>
-                  ) : (
-                    ((impactData.current as SinglePlantCurrentImpact).reasons || []).map((r, rIdx) => (
-                      <div
-                        key={rIdx}
-                        className="p-3 rounded-lg border text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2"
-                        style={{
-                          background: 'var(--color-bg-primary)',
-                          borderColor: 'var(--color-border)',
-                        }}
-                      >
-                        <span className="text-orbit-text leading-relaxed font-sans">
-                          {r.text}
-                        </span>
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-panel-header border border-panel-border text-orbit-text-muted shrink-0 self-start sm:self-auto">
-                          Source: {r.source}
-                        </span>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              {/* 48-Hour Estimated Output Chart (Gas, Solar, Wind) */}
-              {(impactData.plantType === 'natural_gas' || impactData.plantType === 'solar' || impactData.plantType === 'wind') &&
-                impactData.timeline.length > 0 && (
+                {((impactData.current as SinglePlantCurrentImpact).reasons || []).length === 0 ? (
                   <div
-                    className="p-4 rounded-xl border space-y-2"
+                    className="p-3 rounded-lg border text-xs text-orbit-text-secondary flex items-center gap-2"
                     style={{
                       background: 'var(--color-bg-primary)',
                       borderColor: 'var(--color-border)',
                     }}
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold uppercase tracking-wider text-orbit-text">
-                        48-Hour Estimated Output Profile
-                      </span>
-                      <span className="text-[10px] font-mono text-orbit-text-muted">
-                        {selectedPlant === 'natural_gas'
-                          ? '% of Rated (ISO 15°C baseline)'
-                          : 'Generation Index (0.0 to 1.0+)'}
-                      </span>
-                    </div>
-
-                    <div className="h-44 w-full pt-1">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart
-                          data={impactData.timeline.map((item) => ({
-                            time: new Date(item.time).toLocaleTimeString('en-US', {
-                              hour: 'numeric',
-                              hour12: true,
-                            }),
-                            output:
-                              selectedPlant === 'natural_gas'
-                                ? item.estimatedOutputPct ?? 100
-                                : item.estimatedOutputIndex ?? 0,
-                          }))}
-                          margin={{ top: 5, right: 10, left: -20, bottom: 0 }}
-                        >
-                          <CartesianGrid strokeDasharray="3 3" stroke="#1e2d50" opacity={0.6} />
-                          <XAxis
-                            dataKey="time"
-                            tick={{ fill: '#94a3b8', fontSize: 9, fontFamily: 'monospace' }}
-                            stroke="#1e2d50"
-                            interval={5}
-                          />
-                          <YAxis
-                            tick={{ fill: '#3b82f6', fontSize: 9, fontFamily: 'monospace' }}
-                            stroke="#1e2d50"
-                          />
-                          <Tooltip
-                            content={({ active, payload }) => {
-                              if (!active || !payload || !payload.length) return null;
-                              return (
-                                <div className="p-2 rounded bg-slate-900 border border-slate-700 text-xs font-mono text-white">
-                                  <span>
-                                    Output:{' '}
-                                    {selectedPlant === 'natural_gas'
-                                      ? `${payload[0].value}%`
-                                      : `${payload[0].value} index`}
-                                  </span>
-                                </div>
-                              );
-                            }}
-                          />
-                          <Area
-                            type="monotone"
-                            dataKey="output"
-                            stroke="#3b82f6"
-                            fill="#3b82f6"
-                            fillOpacity={0.2}
-                          />
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    </div>
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>No active weather alerts or adverse operating factors for this technology.</span>
                   </div>
+                ) : (
+                  ((impactData.current as SinglePlantCurrentImpact).reasons || []).map((r, rIdx) => (
+                    <div
+                      key={rIdx}
+                      className="p-3 rounded-lg border text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                      style={{
+                        background: 'var(--color-bg-primary)',
+                        borderColor: 'var(--color-border)',
+                      }}
+                    >
+                      <span className="text-orbit-text leading-relaxed font-sans">
+                        {r.text}
+                      </span>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-panel-header border border-panel-border text-orbit-text-muted shrink-0 self-start sm:self-auto">
+                        Source: {r.source}
+                      </span>
+                    </div>
+                  ))
                 )}
+              </div>
             </div>
-          )}
+
+            {/* 48-Hour Estimated Output Chart (Gas, Solar, Wind) */}
+            {(impactData.plantType === 'natural_gas' || impactData.plantType === 'solar' || impactData.plantType === 'wind') &&
+              impactData.timeline.length > 0 && (
+                <div
+                  className="p-4 rounded-xl border space-y-2"
+                  style={{
+                    background: 'var(--color-bg-primary)',
+                    borderColor: 'var(--color-border)',
+                  }}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-orbit-text">
+                      48-Hour Estimated Output Profile
+                    </span>
+                    <span className="text-[10px] font-mono text-orbit-text-muted">
+                      {selectedPlant === 'natural_gas'
+                        ? '% of Rated (ISO 15°C baseline)'
+                        : 'Generation Index (0.0 to 1.0+)'}
+                    </span>
+                  </div>
+
+                  <div className="h-44 w-full pt-1">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart
+                        data={impactData.timeline.map((item) => ({
+                          time: new Date(item.time).toLocaleTimeString('en-US', {
+                            hour: 'numeric',
+                            hour12: true,
+                          }),
+                          output:
+                            selectedPlant === 'natural_gas'
+                              ? item.estimatedOutputPct ?? 100
+                              : item.estimatedOutputIndex ?? 0,
+                        }))}
+                        margin={{ top: 5, right: 10, left: -20, bottom: 0 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#1e2d50" opacity={0.6} />
+                        <XAxis
+                          dataKey="time"
+                          tick={{ fill: '#94a3b8', fontSize: 9, fontFamily: 'monospace' }}
+                          stroke="#1e2d50"
+                          interval={5}
+                        />
+                        <YAxis
+                          tick={{ fill: '#3b82f6', fontSize: 9, fontFamily: 'monospace' }}
+                          stroke="#1e2d50"
+                        />
+                        <Tooltip
+                          content={({ active, payload }) => {
+                            if (!active || !payload || !payload.length) return null;
+                            return (
+                              <div className="p-2 rounded bg-slate-900 border border-slate-700 text-xs font-mono text-white">
+                                <span>
+                                  Output:{' '}
+                                  {selectedPlant === 'natural_gas'
+                                    ? `${payload[0].value}%`
+                                    : `${payload[0].value} index`}
+                                </span>
+                              </div>
+                            );
+                          }}
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="output"
+                          stroke="#3b82f6"
+                          fill="#3b82f6"
+                          fillOpacity={0.2}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+          </div>
 
           {/* Recommended Actions Checklist */}
           {impactData.current.recommendedActions.length > 0 && (

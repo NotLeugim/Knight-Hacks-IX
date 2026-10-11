@@ -83,7 +83,6 @@ export interface WeatherForecastResponse {
 }
 
 export type PlantType =
-  | 'mix'
   | 'natural_gas'
   | 'nuclear'
   | 'solar'
