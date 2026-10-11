@@ -11,7 +11,6 @@ import { fetchAnalytics } from '@/lib/api';
 
 const NAV_TABS: TabItem[] = [
   { id: '/', label: 'Live Mission' },
-  { id: '/anomalies', label: 'Anomalies', badge: 3 },
   { id: '/missions', label: 'Missions' },
   { id: '/insights', label: 'Insights' },
   { id: '/weather', label: 'Weather' },
@@ -20,7 +19,6 @@ const NAV_TABS: TabItem[] = [
 export const ROUTE_TITLES: Record<string, string> = {
   '/': 'Active Patrol',
   '/live': 'Active Patrol',
-  '/anomalies': 'Anomaly Log',
   '/missions': 'Mission History',
   '/insights': 'Fleet Analytics',
   '/weather': 'Weather',
@@ -60,8 +58,6 @@ export function AppShell({ children }: AppShellProps) {
   // Determine active tab
   const activeTab = NAV_TABS.some((tab) => tab.id === pathname)
     ? pathname
-    : pathname.startsWith('/anomalies')
-    ? '/anomalies'
     : pathname.startsWith('/missions')
     ? '/missions'
     : pathname.startsWith('/insights')
