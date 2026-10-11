@@ -417,7 +417,7 @@ export async function fetchWeatherForecast(
 export async function fetchPlantImpacts(
   lat: number,
   lon: number,
-  plant: string = 'mix',
+  plant: string = 'nuclear',
   name?: string
 ): Promise<{ data: PlantImpactResponse | null; source: 'api' | 'offline' }> {
   try {
