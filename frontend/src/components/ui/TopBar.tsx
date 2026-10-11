@@ -127,17 +127,6 @@ export function TopBar({
 
       {/* ── Right: Operator Copilot Button & Slot ── */}
       <div className="flex items-center gap-2 sm:gap-3">
-        {/* Dev-only link to /design-system; completely hidden in production builds */}
-        {isDev && (
-          <Link
-            href="/design-system"
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-button bg-white/10 text-white/90 border border-white/20 hover:bg-white/20 hover:text-white transition-colors mr-1"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-yellow-300" />
-            <span>Design System</span>
-          </Link>
-        )}
-
         {rightSlot}
 
         <button
