@@ -1517,8 +1517,8 @@ export default function InteractiveFloorPlan({
           })}
         </div>
 
-        {/* SPOT Patrol Route Toggle (Active in Pathfinding Mode; Stripped in Action Mode) */}
-        {activeMode === 'pathfinding' ? (
+        {/* SPOT Patrol Route Toggle (Active in Pathfinding Mode) */}
+        {activeMode === 'pathfinding' && (
           <button
             id="toggle-patrol-route"
             onClick={() => setShowRoute((prev) => !prev)}
@@ -1536,11 +1536,6 @@ export default function InteractiveFloorPlan({
               }`}
             />
           </button>
-        ) : (
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-semibold bg-[#0c2340]/80 border border-sky-800/80 text-sky-300 backdrop-blur-md shadow-lg">
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-            <span>Path Clutter Stripped</span>
-          </div>
         )}
       </div>
 
