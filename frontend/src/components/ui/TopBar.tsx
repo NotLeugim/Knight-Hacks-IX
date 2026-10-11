@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Settings, SearchCheck, Puzzle, User } from 'lucide-react';
+import { SearchCheck, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { IconButton } from './IconButton';
 
@@ -12,17 +12,61 @@ export interface TopBarProps {
   onSearchClick?: () => void;
   onExtensionsClick?: () => void;
   onUserClick?: () => void;
+  onCopilotClick?: () => void;
   rightSlot?: React.ReactNode;
 }
 
 export function TopBar({
   className,
-  onSettingsClick,
   onSearchClick,
-  onExtensionsClick,
-  onUserClick,
+  onCopilotClick,
   rightSlot,
 }: TopBarProps) {
+  const isDev = process.env.NODE_ENV === 'development';
+
+  const handleCopilotToggle = () => {
+    if (onCopilotClick) {
+      onCopilotClick();
+      return;
+    }
+
+    if (typeof window === 'undefined') return;
+
+    const container = document.querySelector('.raia-chat-widget__container');
+    const isOpen = container?.classList.contains('raia-chat-widget__container--open');
+
+    // 1. Native SDK toggle (directly controls open/close state)
+    const raia = (window as any).raiaChat;
+    if (raia) {
+      if (isOpen) {
+        if (typeof raia.closeChat === 'function') {
+          raia.closeChat();
+          return;
+        }
+        if (typeof raia.sendCommand === 'function') {
+          raia.sendCommand('CLOSE_CHAT');
+          return;
+        }
+      } else {
+        if (typeof raia.openChat === 'function') {
+          raia.openChat();
+          return;
+        }
+        if (typeof raia.sendCommand === 'function') {
+          raia.sendCommand('OPEN_CHAT');
+          return;
+        }
+      }
+    }
+
+    // 2. DOM fallback targeting the inner <button> instead of outer <div>
+    const btn =
+      document.querySelector<HTMLElement>('.raia-chat-widget__button') ||
+      document.querySelector<HTMLElement>('.raia-chat-widget__launcher button') ||
+      document.querySelector<HTMLElement>('.raia-chat-widget__launcher');
+    if (btn) btn.click();
+  };
+
   return (
     <header
       id="spotsight-topbar"
@@ -68,18 +112,8 @@ export function TopBar({
           </span>
         </Link>
 
-        {/* Note: vertical divider after wordmark removed per Orbit design spec */}
-
-        {/* Left Icon Buttons (28-32px hit areas, strokeWidth 2.25) */}
+        {/* Left Icon Buttons */}
         <div className="flex items-center gap-1.5 ml-1">
-          <IconButton
-            icon={<Settings className="w-5 h-5 text-white/90" strokeWidth={2.25} />}
-            label="Settings"
-            tooltip="System Settings"
-            variant="navyGhost"
-            size="md"
-            onClick={onSettingsClick}
-          />
           <IconButton
             icon={<SearchCheck className="w-5 h-5 text-white/90" strokeWidth={2.25} />}
             label="Search and Verify"
@@ -91,30 +125,20 @@ export function TopBar({
         </div>
       </div>
 
-      {/* ── Right: Extensions & User Profile ── */}
+      {/* ── Right: Operator Copilot Button & Slot ── */}
       <div className="flex items-center gap-2 sm:gap-3">
         {rightSlot}
 
-        <div className="flex items-center gap-2">
-          <IconButton
-            icon={<Puzzle className="w-5 h-5 text-white/90" strokeWidth={2.25} />}
-            label="Orbit Extensions"
-            tooltip="Orbit Add-ons & Plugins"
-            variant="navyGhost"
-            size="md"
-            onClick={onExtensionsClick}
-          />
-
-          {/* User avatar: solid filled circle-user icon, ~36px */}
-          <button
-            type="button"
-            aria-label="Operator Profile"
-            onClick={onUserClick}
-            className="w-9 h-9 min-w-[36px] min-h-[36px] rounded-full bg-[#1F4673] hover:bg-[#28588F] text-white flex items-center justify-center transition-colors shadow-xs cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-orbit-blue"
-          >
-            <User className="w-5 h-5 text-white fill-white" />
-          </button>
-        </div>
+        <button
+          type="button"
+          id="operator-copilot-btn"
+          aria-label="Operator Copilot"
+          onClick={handleCopilotToggle}
+          className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-button bg-[#1B477D] hover:bg-[#23589B] active:bg-[#163D6B] border border-orbit-blue/40 hover:border-orbit-blue text-white text-sm font-semibold tracking-wide transition-all shadow-xs cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-orbit-blue focus-visible:ring-offset-1 focus-visible:ring-offset-navy"
+        >
+          <Sparkles className="w-4 h-4 text-[#62A9DB]" />
+          <span>Operator Copilot</span>
+        </button>
       </div>
     </header>
   );
