@@ -49,6 +49,20 @@
   --radius-tab-item: 8px;
 
   --font-sans: var(--font-inter), Inter, system-ui, -apple-system, sans-serif;
+
+  /* Z-Index Stacking Order Scale */
+  --z-index-base: 0;
+  --z-index-map-content: 10;
+  --z-index-map-overlays: 100;
+  --z-index-sub-toolbar: 190;
+  --z-index-navbar: 200;
+  --z-index-top-bar: 200;
+  --z-index-drawer: 300;
+  --z-index-popover: 350;
+  --z-index-toast: 400;
+  --z-index-modal-backdrop: 500;
+  --z-index-modal: 510;
+  --z-index-tooltip: 600;
 }
 
 /* ── Orbit CSS Variables & Harmonized Tokens ── */

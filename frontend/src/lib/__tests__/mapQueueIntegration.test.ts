@@ -286,6 +286,62 @@ describe('Floor Plan Route Visibility & Simplified Legend', () => {
       assert.equal(/WP\d+/i.test(label), false);
     }
   });
+
+  it('theme tokens in globals.css declare z-index scale matching token definitions', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const { zIndex } = await import('../../styles/tokens');
+
+    const cssPath = path.resolve(__dirname, '../../app/globals.css');
+    const cssContent = fs.readFileSync(cssPath, 'utf8');
+
+    assert.ok(
+      cssContent.includes(`--z-index-map-content: ${zIndex.mapContent};`),
+      'globals.css must define --z-index-map-content'
+    );
+    assert.ok(
+      cssContent.includes(`--z-index-map-overlays: ${zIndex.mapOverlays};`),
+      'globals.css must define --z-index-map-overlays'
+    );
+  });
+
+  it('InteractiveFloorPlan mounts map overlays above map content with unified z-index tokens', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+
+    const ifpPath = path.resolve(__dirname, '../../components/InteractiveFloorPlan.tsx');
+    const ifpContent = fs.readFileSync(ifpPath, 'utf8');
+
+    assert.ok(
+      ifpContent.includes('z-map-overlays'),
+      'Controls bar must have z-map-overlays'
+    );
+    assert.ok(
+      ifpContent.includes('z-map-content'),
+      'Leaflet container wrapper must have z-map-content'
+    );
+    assert.ok(
+      ifpContent.includes('mode-toggle-segmented'),
+      'Mode toggle segmented control must exist'
+    );
+    assert.ok(
+      ifpContent.includes('toggle-mode-pathfinding'),
+      'Pathfinding mode toggle must exist'
+    );
+    assert.ok(
+      ifpContent.includes('toggle-mode-action'),
+      'Action mode toggle must exist'
+    );
+    assert.ok(
+      ifpContent.includes('Floor 1') && ifpContent.includes('Floor 2'),
+      'Floor 1 and Floor 2 tabs must exist'
+    );
+    assert.ok(
+      ifpContent.includes('pathfinding-status-legend'),
+      '3-entry pathfinding status legend must exist'
+    );
+  });
 });
+
 
 
