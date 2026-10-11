@@ -6,6 +6,7 @@ import {
   MapContainer,
   SVGOverlay,
   Marker,
+  Tooltip,
   useMap,
   useMapEvents,
 } from 'react-leaflet';
@@ -18,6 +19,9 @@ import {
   Zap,
   Navigation,
   AlertTriangle,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import type { TriageAnomaly } from '@/lib/triageTypes';
 import {
@@ -25,6 +29,11 @@ import {
   WaypointHeatMetrics,
   resolveWaypointHeat,
   computeAllWaypointsHeat,
+  resolveWaypointFailureDetails,
+  computeFleetFailureSummary,
+  WaypointFailureDetails,
+  FleetFailureSummary,
+  formatActionTypeName,
 } from '@/lib/actionMode';
 import { actionsFixture } from '@/lib/actionsFixture';
 
@@ -1267,10 +1276,26 @@ export default function InteractiveFloorPlan({
 
   const currentActions = actions ?? actionsFixture;
 
+  const [fleetSummaryExpanded, setFleetSummaryExpanded] = useState<boolean>(true);
+
   // Compute Action Mode failure heat across all waypoints
   const waypointHeatMap = useMemo(() => {
     const ids = FLOOR_WAYPOINTS.map((w) => w.id);
     return computeAllWaypointsHeat(ids, currentActions);
+  }, [currentActions]);
+
+  // Compute Action Mode failure details across all waypoints
+  const waypointFailureDetailsMap = useMemo(() => {
+    const detailsMap: Record<string, WaypointFailureDetails> = {};
+    for (const wp of FLOOR_WAYPOINTS) {
+      detailsMap[wp.id] = resolveWaypointFailureDetails(wp.id, currentActions);
+    }
+    return detailsMap;
+  }, [currentActions]);
+
+  // Compute fleet-level failure summary across all missions
+  const fleetSummary = useMemo(() => {
+    return computeFleetFailureSummary(currentActions);
   }, [currentActions]);
 
   // Compute dynamic status of all waypoints across both floors based on hoisted anomalies
@@ -1386,6 +1411,7 @@ export default function InteractiveFloorPlan({
       // In Action Mode: clicking any waypoint with failedCount > 0 calls onNodeSelect(nodeId, payload)
       if (activeMode === 'action') {
         const heat = waypointHeatMap[wp.id];
+        const details = waypointFailureDetailsMap[wp.id];
         if (heat && heat.failedCount > 0) {
           const payload = {
             waypointId: wp.id,
@@ -1394,13 +1420,9 @@ export default function InteractiveFloorPlan({
             failureRate: heat.failureRate,
             heatScore: heat.heatScore,
             color: heat.color,
-            failedActions: heat.failedActions.map((fa) => ({
-              action_id: fa.action_id,
-              action_type: fa.action_type,
-              failure_type: fa.failure_type,
-              timestamp: fa.timestamp,
-              mission_id: fa.mission_id,
-            })),
+            actionTypeBreakdown: details?.actionTypeBreakdown || [],
+            possibleCauses: details?.possibleCauses || [],
+            failedActions: details?.failedActions || [],
           };
           onNodeSelect?.(wp.id, payload);
         }
@@ -1423,7 +1445,7 @@ export default function InteractiveFloorPlan({
         onSelectIssueId?.(null);
       }
     },
-    [activeMode, waypointHeatMap, onNodeSelect, anomalies, onSelectIssueId, onSelectWaypointId, onSelectWaypoint]
+    [activeMode, waypointHeatMap, waypointFailureDetailsMap, onNodeSelect, anomalies, onSelectIssueId, onSelectWaypointId, onSelectWaypoint]
   );
 
   const handleDismiss = useCallback(() => {
@@ -1524,24 +1546,118 @@ export default function InteractiveFloorPlan({
 
       {/* ── Top-Right Legend: Action Mode Heat Map vs Pathfinding Blueprint Status ── */}
       {activeMode === 'action' ? (
-        <div
-          id="action-mode-legend"
-          className="absolute top-4 right-4 z-[1000] flex items-center gap-2.5 bg-[#0c2340]/95 backdrop-blur-md px-3.5 py-1.5 rounded-lg border border-sky-500/60 shadow-xl text-xs font-mono"
-        >
-          <div className="flex items-center gap-1.5 text-sky-300 font-bold text-[11px] uppercase tracking-wider">
-            <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
-            <span>Failure rate:</span>
+        <div className="absolute top-4 right-4 z-[1000] flex flex-col items-end gap-2">
+          {/* Action Mode Heat Legend */}
+          <div
+            id="action-mode-legend"
+            className="flex items-center gap-2.5 bg-[#0c2340]/95 backdrop-blur-md px-3.5 py-1.5 rounded-lg border border-sky-500/60 shadow-xl text-xs font-mono"
+          >
+            <div className="flex items-center gap-1.5 text-sky-300 font-bold text-[11px] uppercase tracking-wider">
+              <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
+              <span>Failure rate:</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-emerald-400 font-semibold">Low</span>
+              <div
+                className="w-24 sm:w-32 h-2.5 rounded-full shadow-inner border border-sky-700/60"
+                style={{
+                  background: 'linear-gradient(to right, #10b981 0%, #eab308 25%, #f97316 60%, #dc2626 100%)',
+                }}
+                title="Continuous heat ramp: Green (Low/0%) → Yellow → Orange → Red (High failure rate)"
+              />
+              <span className="text-[10px] text-red-400 font-bold">High</span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] text-emerald-400 font-semibold">Low</span>
-            <div
-              className="w-24 sm:w-32 h-2.5 rounded-full shadow-inner border border-sky-700/60"
-              style={{
-                background: 'linear-gradient(to right, #10b981 0%, #eab308 25%, #f97316 60%, #dc2626 100%)',
-              }}
-              title="Continuous heat ramp: Green (Low/0%) → Yellow → Orange → Red (High failure rate)"
-            />
-            <span className="text-[10px] text-red-400 font-bold">High</span>
+
+          {/* ── Top-Right Fleet Failure Summary Card (Completed Mission Paradox) ── */}
+          <div
+            id="fleet-failure-summary-card"
+            className="w-80 sm:w-96 bg-[#0c2340]/95 backdrop-blur-md rounded-xl border border-sky-600/70 shadow-2xl p-3 text-xs font-mono select-none animate-in fade-in slide-in-from-top-1 duration-200"
+          >
+            <div className="flex items-center justify-between border-b border-sky-800/80 pb-1.5 mb-1.5">
+              <div className="flex items-center gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span className="font-bold text-white text-[11px] uppercase tracking-wide">
+                  Mission Paradox Summary
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFleetSummaryExpanded((prev) => !prev)}
+                className="text-[10px] text-sky-300 hover:text-white px-1.5 py-0.5 rounded bg-sky-950 border border-sky-800 transition-colors flex items-center gap-1 cursor-pointer"
+                aria-label="Toggle fleet failure summary"
+              >
+                <span>{fleetSummaryExpanded ? 'Collapse' : 'Expand'}</span>
+                {fleetSummaryExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+              </button>
+            </div>
+
+            {/* Main Stats Line */}
+            <div className="flex items-center justify-between text-[11px] mb-1.5">
+              <span className="text-slate-300">
+                <strong className="text-red-400 font-bold">{fleetSummary.totalFailedActions}</strong> failed actions in{' '}
+                <strong className="text-amber-300 font-bold">{fleetSummary.missionsWithFailuresCount}</strong> of{' '}
+                <strong className="text-white">{fleetSummary.totalMissionsCount}</strong> missions
+              </span>
+              <span className="text-[10px] text-red-300 font-bold px-1.5 py-0.5 rounded bg-red-950/60 border border-red-800/60">
+                {(fleetSummary.fleetFailureRate * 100).toFixed(1)}% Fail
+              </span>
+            </div>
+
+            {fleetSummaryExpanded && (
+              <div className="space-y-2 pt-1 border-t border-sky-900/60 text-[10px]">
+                {/* Top Failing Waypoints */}
+                <div>
+                  <div className="text-slate-400 uppercase font-semibold text-[9px] mb-1">
+                    Top Failing Waypoints:
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {fleetSummary.topFailingWaypoints.slice(0, 5).map((wp) => (
+                      <span
+                        key={wp.waypointId}
+                        className="px-1.5 py-0.5 rounded bg-[#081a30] border border-sky-800 text-sky-200"
+                      >
+                        <strong>{wp.waypointId}</strong> ({wp.failedCount}F)
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Top Failed Action Types */}
+                <div>
+                  <div className="text-slate-400 uppercase font-semibold text-[9px] mb-1">
+                    Top Failed Action Types:
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {fleetSummary.topFailedActionTypes.slice(0, 4).map((at) => (
+                      <span
+                        key={at.actionType}
+                        className="px-1.5 py-0.5 rounded bg-[#081a30] border border-sky-800 text-slate-200"
+                      >
+                        {at.actionType} <span className="text-red-400 font-bold">×{at.count}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Top Cause Categories */}
+                <div>
+                  <div className="text-slate-400 uppercase font-semibold text-[9px] mb-1">
+                    Top Cause Categories:
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {fleetSummary.topCauseCategories.filter((c) => c.count > 0).map((c) => (
+                      <span
+                        key={c.category}
+                        className="px-1.5 py-0.5 rounded bg-[#081a30] border border-sky-800 text-amber-300"
+                      >
+                        {c.category}: <strong>{c.count}</strong>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       ) : (
@@ -1568,6 +1684,20 @@ export default function InteractiveFloorPlan({
 
       {/* ── Leaflet Map Container ── */}
       <div className="relative flex-1 w-full h-full">
+        {/* Custom CSS for Action Mode Marker Tooltips */}
+        <style>{`
+          .action-mode-node-tooltip {
+            background-color: rgba(7, 27, 51, 0.96) !important;
+            border: 1px solid rgba(56, 189, 248, 0.6) !important;
+            border-radius: 8px !important;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.7), 0 0 12px rgba(56, 189, 248, 0.2) !important;
+            padding: 6px 8px !important;
+            color: #f1f5f9 !important;
+          }
+          .action-mode-node-tooltip::before {
+            border-top-color: rgba(7, 27, 51, 0.96) !important;
+          }
+        `}</style>
         <MapContainer
           crs={L.CRS.Simple}
           zoomControl={false}
@@ -1607,6 +1737,7 @@ export default function InteractiveFloorPlan({
           {visibleWaypoints.map((wp) => {
             const isSelected = selectedWp?.id === wp.id;
             const heat = waypointHeatMap[wp.id];
+            const failureDetails = waypointFailureDetailsMap[wp.id];
             const icon = createBlueprintPin(wp, isSelected, activeMode, heat);
             if (!icon) return null;
 
@@ -1623,14 +1754,239 @@ export default function InteractiveFloorPlan({
                     handleMarkerClick(wp);
                   },
                 }}
-              />
+              >
+                {/* Action Mode Hover Tooltip */}
+                {activeMode === 'action' && heat && (
+                  <Tooltip
+                    direction="top"
+                    offset={[0, -22]}
+                    opacity={0.98}
+                    className="action-mode-node-tooltip"
+                  >
+                    <div className="font-mono text-xs p-1 text-slate-100 min-w-[190px] max-w-[280px]">
+                      <div className="flex items-center justify-between gap-2 border-b border-sky-800/80 pb-1 mb-1">
+                        <span className="font-bold flex items-center gap-1.5">
+                          <span
+                            className="w-2 h-2 rounded-full inline-block"
+                            style={{ backgroundColor: heat.color }}
+                          />
+                          <span>{wp.id}</span>
+                        </span>
+                        <span
+                          className="text-[10px] font-bold px-1.5 py-0.5 rounded"
+                          style={{
+                            backgroundColor: `${heat.color}25`,
+                            color: heat.color,
+                          }}
+                        >
+                          {heat.failedCount > 0
+                            ? `${heat.failedCount} / ${heat.totalCount} Failed`
+                            : '0 Failures'}
+                        </span>
+                      </div>
+
+                      {failureDetails && failureDetails.actionTypeBreakdown.length > 0 ? (
+                        <div className="text-[11px] text-sky-200">
+                          {failureDetails.actionTypeBreakdown
+                            .map((t) => `${t.actionType} ×${t.count}`)
+                            .join(', ')}
+                        </div>
+                      ) : (
+                        <div className="text-[11px] text-emerald-300">
+                          All {heat.totalCount} actions nominal
+                        </div>
+                      )}
+
+                      {failureDetails && failureDetails.possibleCauses.length > 0 && (
+                        <div className="text-[10px] text-amber-300/90 mt-1 font-sans truncate">
+                          Cause: {failureDetails.possibleCauses[0].hypothesis}
+                        </div>
+                      )}
+
+                      <div className="text-[9px] text-slate-400 mt-1 font-sans border-t border-sky-900/60 pt-1">
+                        Click to pin failure details
+                      </div>
+                    </div>
+                  </Tooltip>
+                )}
+              </Marker>
             );
           })}
         </MapContainer>
       </div>
 
-      {/* ── Bottom-Left Selected Waypoint / Issue Drawer / Telemetry Card ── */}
-      {selectedWp && (
+      {/* ── Action Mode Pinned Failure Detail & Causes Panel ── */}
+      {activeMode === 'action' && selectedWp && (() => {
+        const heat = waypointHeatMap[selectedWp.id];
+        const details = waypointFailureDetailsMap[selectedWp.id];
+        const hasFailures = details && details.failedCount > 0;
+
+        return (
+          <div
+            id="action-mode-failure-detail-panel"
+            className="absolute bottom-4 left-4 right-4 md:right-auto md:w-[460px] xl:w-[500px] max-h-[calc(100%-80px)] z-[1000] bg-[#071b33]/95 backdrop-blur-md border border-sky-600/80 p-4 rounded-xl shadow-2xl overflow-y-auto animate-in fade-in slide-in-from-bottom-2 duration-200 font-sans"
+          >
+            {/* Header */}
+            <div className="flex items-start justify-between border-b border-sky-800/80 pb-3">
+              <div className="flex items-center gap-2.5">
+                <span
+                  className="px-2.5 py-1 rounded bg-[#0c2340] border font-mono font-bold text-xs"
+                  style={{ borderColor: heat?.color || '#38bdf8', color: heat?.color || '#38bdf8' }}
+                >
+                  {selectedWp.id}
+                </span>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-xs font-bold text-white tracking-wide">{selectedWp.name}</h4>
+                    <span
+                      className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${
+                        hasFailures
+                          ? 'bg-red-500/20 text-red-300 border border-red-500/40'
+                          : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                      }`}
+                    >
+                      {hasFailures
+                        ? `${details.failedCount} / ${details.totalCount} Failed (${(details.failureRate * 100).toFixed(1)}%)`
+                        : `0 Failures (${details?.totalCount || 0} Total)`}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-sky-300 font-mono mt-0.5">
+                    {selectedWp.zone} • {selectedWp.assetId}
+                  </p>
+                </div>
+              </div>
+              <button
+                id="close-action-detail-panel"
+                onClick={handleDismiss}
+                className="text-slate-400 hover:text-white text-xs p-1 rounded hover:bg-sky-900/50 transition-colors cursor-pointer"
+                aria-label="Close action detail panel"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Content based on whether node has failures or zero failures */}
+            {!hasFailures ? (
+              <div className="mt-3 bg-emerald-950/30 border border-emerald-800/60 rounded-lg p-3 text-center">
+                <div className="flex items-center justify-center gap-2 text-emerald-400 font-semibold text-xs">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <span>No Failed Actions</span>
+                </div>
+                <p className="mt-1 text-[11px] text-slate-300">
+                  All {details?.totalCount || 0} actions at this waypoint completed successfully across all recorded missions.
+                </p>
+                <div className="mt-2 text-[10px] font-mono text-emerald-300/80">
+                  Waypoint Status: Nominal Operation (100% Reliability)
+                </div>
+              </div>
+            ) : (
+              <div className="mt-3 space-y-3.5">
+                {/* 1. Breakdown of failed actions by action type */}
+                <div>
+                  <div className="text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                    <span>Failed Action Types</span>
+                    <span className="text-[10px] text-sky-400 font-mono">{details.failedCount} Total Failures</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {details.actionTypeBreakdown.map((t) => (
+                      <span
+                        key={t.actionType}
+                        className="px-2 py-1 rounded bg-[#0c2340] border border-sky-700/80 text-[11px] font-mono text-sky-200 flex items-center gap-1.5"
+                      >
+                        <span className="font-semibold text-white">{t.actionType}</span>
+                        <span className="bg-red-500/30 text-red-300 px-1 rounded text-[10px] font-bold">
+                          ×{t.count}
+                        </span>
+                        <span className="text-slate-400 text-[10px]">({t.percentage}%)</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 2. Possible causes summary */}
+                <div>
+                  <div className="text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Possible Causes & Evidence</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {details.possibleCauses.map((cause) => {
+                      const categoryColor =
+                        cause.category === 'Navigation/Obstacle'
+                          ? 'border-amber-500/50 bg-amber-950/20 text-amber-300'
+                          : cause.category === 'Equipment/Sensor'
+                          ? 'border-indigo-500/50 bg-indigo-950/20 text-indigo-300'
+                          : cause.category === 'Robot state (battery)'
+                          ? 'border-rose-500/50 bg-rose-950/20 text-rose-300'
+                          : cause.category === 'Environmental'
+                          ? 'border-cyan-500/50 bg-cyan-950/20 text-cyan-300'
+                          : 'border-slate-600 bg-slate-900/40 text-slate-300';
+
+                      return (
+                        <div
+                          key={cause.id}
+                          className="p-2.5 rounded-lg bg-[#0c2340]/80 border border-sky-800/80 text-xs"
+                        >
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border uppercase ${categoryColor}`}>
+                              {cause.category}
+                            </span>
+                            <span className="text-[10px] font-mono text-slate-400">
+                              Explains {cause.explainedCount} of {details.failedCount} ({cause.explainedPercentage}%)
+                            </span>
+                          </div>
+                          <div className="font-semibold text-white text-[11px] leading-tight mb-1">
+                            {cause.hypothesis}
+                          </div>
+                          <p className="text-[10px] text-slate-300 leading-snug">
+                            <span className="text-sky-400 font-semibold font-mono">Evidence: </span>
+                            {cause.evidence}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 3. List of individual failed actions */}
+                <div>
+                  <div className="text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                    <span>Individual Failed Actions</span>
+                    <span className="text-[10px] text-slate-400 font-mono">Chronological</span>
+                  </div>
+                  <div className="max-h-44 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+                    {details.failedActions.map((act) => (
+                      <div
+                        key={act.action_id}
+                        className="p-2 rounded bg-[#091f38] border border-sky-900/80 text-[10px] font-mono flex items-center justify-between gap-2 hover:bg-[#0c2847] transition-colors"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-sky-200">{act.action_id}</span>
+                            <span className="text-slate-400">({act.mission_id})</span>
+                            <span className="text-white font-sans font-medium">{formatActionTypeName(act.action_type)}</span>
+                          </div>
+                          <div className="text-[9px] text-slate-400 mt-0.5">
+                            Asset: {act.asset_id || 'N/A'} • Bat: {act.battery_pct}% • {act.timestamp ? act.timestamp.replace('2026-', '') : ''}
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/40 text-[9px] font-bold uppercase">
+                            {act.failure_type || 'FAILED'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── Pathfinding Mode Selected Waypoint / Issue Drawer / Telemetry Card ── */}
+      {activeMode === 'pathfinding' && selectedWp && (
         <div
           id="waypoint-telemetry-panel"
           className="absolute bottom-4 left-4 right-4 md:right-auto md:w-96 z-[1000] bg-[#0c2340]/95 backdrop-blur-md border border-sky-700 p-3.5 rounded-xl shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200"
