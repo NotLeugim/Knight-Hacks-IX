@@ -75,15 +75,6 @@ def get_findings():
     return {"findings": {}}
 
 
-# ── Triage ────────────────────────────────────────────────────────────────────
-
-@router.get("/api/triage", tags=["triage"])
-@router.get("/triage", tags=["triage"])
-def get_triage_queue():
-    """Returns risk-ranked open issues (severity × criticality × failure rate)."""
-    return {"queue": []}
-
-
 # ── AI ────────────────────────────────────────────────────────────────────────
 
 class PromptRequest(BaseModel):

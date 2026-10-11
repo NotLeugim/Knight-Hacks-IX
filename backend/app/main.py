@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import endpoints
 from app.api import analytics as analytics_api
 from app.api import summary as summary_api
+from app.api import triage as triage_api
 from app.services.gemini import upload_guide
 
 # Paths to the Spot User Guide PDFs provided in the challenge kit
@@ -89,6 +90,7 @@ app.add_middleware(
 app.include_router(endpoints.router)
 app.include_router(analytics_api.router)
 app.include_router(summary_api.router)
+app.include_router(triage_api.router)
 
 
 @app.get("/")
