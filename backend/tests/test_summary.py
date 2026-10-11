@@ -320,3 +320,84 @@ def test_10_m015_clean_wording_no_raw_codes(client):
     assert "0 require" not in bullet_3
     assert "3 other anomalies remain" in bullet_3
     assert "Mission confidence score: 51/100." in bullet_3
+
+
+def test_11_bullet_2_exact_matches(client):
+    """
+    11. Exact-match tests for M017 and M008 (plus M015, M003, M024) Bullet 2 strings.
+    """
+    res_17 = client.get("/api/missions/M017/summary")
+    assert res_17.status_code == 200
+    expected_m017 = "- 3 of 10 actions failed (target not detected at Turbine Hall South and Cooling Loop; communication loss at Turbine Hall South), and the mission reported FAILED."
+    assert res_17.json()["bullets"][1] == expected_m017
+
+    res_08 = client.get("/api/missions/M008/summary")
+    assert res_08.status_code == 200
+    expected_m008 = "- 3 of 10 actions failed (unreliable reading at Main Entrance, Electrical Room, and Pump Bay), even though the mission reported COMPLETED."
+    assert res_08.json()["bullets"][1] == expected_m008
+
+    res_15 = client.get("/api/missions/M015/summary")
+    assert res_15.status_code == 200
+    expected_m015 = "- 3 of 10 actions failed (lost localization at Pipe Gallery; sensor timeout at Pump Bay; signal noise at Control Room Corridor), even though the mission reported COMPLETED."
+    assert res_15.json()["bullets"][1] == expected_m015
+
+    res_03 = client.get("/api/missions/M003/summary")
+    assert res_03.status_code == 200
+    expected_m003 = "- 3 of 10 actions failed (target not detected at Inspection Dock and Pipe Gallery; sensor timeout at Pump Bay), even though the mission reported COMPLETED."
+    assert res_03.json()["bullets"][1] == expected_m003
+
+    res_24 = client.get("/api/missions/M024/summary")
+    assert res_24.status_code == 200
+    expected_m024 = "- 2 of 10 actions failed (sensor timeout at Valve Station; obstacle detected at Main Entrance), even though the mission reported COMPLETED."
+    assert res_24.json()["bullets"][1] == expected_m024
+
+
+def test_12_bullet_2_mentions_all_failures_and_locations(client):
+    """
+    12. For EVERY mission with failures, Bullet 2 mentions every failed action's
+        location name and every failure type (in plain words), and never contains
+        'most common' or a raw code like TARGET_NOT_DETECTED.
+    """
+    raw_codes = [
+        "LOCALIZATION_FAILURE",
+        "SENSOR_TIMEOUT",
+        "SIGNAL_NOISE",
+        "READING_UNRELIABLE",
+        "TARGET_NOT_DETECTED",
+        "COMMUNICATION_LOSS",
+        "PATH_BLOCKED",
+        "OBSTACLE_DETECTION",
+    ]
+    for i in range(1, 28):
+        m_id = f"M{i:03d}"
+        res = client.get(f"/api/missions/{m_id}/summary")
+        assert res.status_code == 200
+        data = res.json()
+        b2 = data["bullets"][1]
+
+        assert "most common" not in b2
+        for code in raw_codes:
+            assert code not in b2
+
+        failed_actions = data["facts"]["failedActions"]
+        if failed_actions:
+            for fa in failed_actions:
+                loc = fa["locationName"]
+                assert loc in b2, f"{m_id} Bullet 2 missing location '{loc}': {b2}"
+                plain_ft = summary_service.format_failure_type(fa.get("failureType"))
+                assert plain_ft in b2, f"{m_id} Bullet 2 missing failure type '{plain_ft}': {b2}"
+
+
+def test_13_every_bullet_2_under_35_words(client):
+    """
+    13. Every Bullet 2 across all 27 missions is at most 35 words.
+    """
+    for i in range(1, 28):
+        m_id = f"M{i:03d}"
+        res = client.get(f"/api/missions/{m_id}/summary")
+        assert res.status_code == 200
+        data = res.json()
+        b2 = data["bullets"][1]
+        word_count = len(b2.split())
+        assert word_count <= 35, f"{m_id} Bullet 2 has {word_count} words (> 35): {b2}"
+
