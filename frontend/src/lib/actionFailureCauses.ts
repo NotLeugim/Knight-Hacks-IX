@@ -393,3 +393,134 @@ export function computeFleetFailureSummary(
     topCauseCategories,
   };
 }
+
+/**
+ * 2D Bounding Box for keep-out zones and collision detection
+ */
+export interface BoundingBox {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+export interface TooltipLayoutInput {
+  containerWidth: number;
+  containerHeight: number;
+  nodeX: number;
+  nodeY: number;
+  tooltipWidth?: number;
+  tooltipHeight?: number;
+  keepOutZones?: BoundingBox[];
+  pinOffset?: number;
+  margin?: number;
+}
+
+export interface TooltipLayoutResult {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  placement: 'top' | 'bottom';
+  arrowLeft: number;
+  arrowPlacement: 'top' | 'bottom';
+}
+
+/**
+ * Checks whether two 2D axis-aligned bounding boxes intersect.
+ */
+export function rectsIntersect(a: BoundingBox, b: BoundingBox): boolean {
+  return !(
+    a.left + a.width <= b.left ||
+    b.left + b.width <= a.left ||
+    a.top + a.height <= b.top ||
+    b.top + b.height <= a.top
+  );
+}
+
+/**
+ * Computes deterministic collision-safe coordinates for Action Mode waypoints.
+ * - Flips below node if top placement collides with container bounds or top overlay keep-out zones
+ * - Shifts left or right away from keep-out zones (e.g. Failure Rate legend, Mission Paradox card)
+ * - Clamps strictly within the container margins on all sides
+ * - Dynamically anchors pointer arrow to always point directly at nodeX
+ */
+export function computeTooltipLayout(input: TooltipLayoutInput): TooltipLayoutResult {
+  const {
+    containerWidth,
+    containerHeight,
+    nodeX,
+    nodeY,
+    tooltipWidth = 290,
+    tooltipHeight = 140,
+    keepOutZones = [],
+    pinOffset = 18,
+    margin = 12,
+  } = input;
+
+  const w = Math.min(tooltipWidth, Math.max(100, containerWidth - margin * 2));
+  const h = tooltipHeight;
+
+  // Horizontal candidate: center on nodeX
+  let candX = nodeX - w / 2;
+  // Initial clamp inside container boundaries
+  candX = Math.max(margin, Math.min(containerWidth - w - margin, candX));
+
+  // Test placement = 'top'
+  const topY = nodeY - pinOffset - h;
+  const topRect: BoundingBox = { left: candX, top: topY, width: w, height: h };
+  const topHitsBoundary = topY < margin;
+  const topHitsKeepOut = keepOutZones.some((zone) => rectsIntersect(topRect, zone));
+
+  let placement: 'top' | 'bottom' = 'top';
+  let candY = topY;
+
+  if (topHitsBoundary || topHitsKeepOut) {
+    // Flip below the node
+    placement = 'bottom';
+    candY = nodeY + pinOffset;
+  }
+
+  // Check collision for the chosen candidate against keep-out zones
+  let chosenRect: BoundingBox = { left: candX, top: candY, width: w, height: h };
+
+  for (const zone of keepOutZones) {
+    if (rectsIntersect(chosenRect, zone)) {
+      // If keep-out zone is in the right half (e.g. legend / summary card), shift left
+      if (zone.left + zone.width / 2 > containerWidth / 2) {
+        const shiftedX = zone.left - w - margin;
+        if (shiftedX >= margin) {
+          candX = shiftedX;
+          chosenRect.left = candX;
+        }
+      } else {
+        // If keep-out zone is in the left half (e.g. mode toggle / floor switcher), shift right
+        const shiftedX = zone.left + zone.width + margin;
+        if (shiftedX + w <= containerWidth - margin) {
+          candX = shiftedX;
+          chosenRect.left = candX;
+        }
+      }
+    }
+  }
+
+  // Final clamp strictly inside container bounds on all 4 sides
+  const finalX = Math.max(margin, Math.min(containerWidth - w - margin, candX));
+  const finalY = Math.max(margin, Math.min(containerHeight - h - margin, candY));
+
+  // Pointer arrow position relative to tooltip box left edge:
+  // Points directly at nodeX, clamped inside tooltip borders and corner radii
+  const rawArrow = nodeX - finalX;
+  const arrowPadding = 16;
+  const arrowLeft = Math.max(arrowPadding, Math.min(w - arrowPadding, rawArrow));
+
+  return {
+    x: Math.round(finalX),
+    y: Math.round(finalY),
+    width: Math.round(w),
+    height: Math.round(h),
+    placement,
+    arrowLeft: Math.round(arrowLeft),
+    arrowPlacement: placement === 'top' ? 'bottom' : 'top',
+  };
+}

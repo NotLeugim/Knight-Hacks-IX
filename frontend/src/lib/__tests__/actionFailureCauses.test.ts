@@ -6,6 +6,8 @@ import {
   inferPossibleCauses,
   resolveWaypointFailureDetails,
   computeFleetFailureSummary,
+  computeTooltipLayout,
+  rectsIntersect,
 } from '../actionFailureCauses';
 import { ActionRecord } from '../actionMode';
 import { actionsFixture } from '../actionsFixture';
@@ -185,5 +187,112 @@ test('Action Failure Causes & Grouping Helpers', async (t) => {
     assert.equal(fleet.topFailingWaypoints[0].waypointId, 'WP05');
     assert.equal(fleet.topFailingWaypoints[0].failedCount, 11);
     assert.ok(fleet.topFailedActionTypes.length > 0);
+  });
+
+  await t.test('computes collision-safe layout flipping below top nodes (WP04, WP06)', () => {
+    const containerWidth = 1000;
+    const containerHeight = 700;
+    const tooltipWidth = 300;
+    const tooltipHeight = 140;
+
+    // Node near top edge (e.g. WP04 at Y=60)
+    const resultWP04 = computeTooltipLayout({
+      containerWidth,
+      containerHeight,
+      nodeX: 250,
+      nodeY: 60,
+      tooltipWidth,
+      tooltipHeight,
+      keepOutZones: [{ left: 16, top: 16, width: 400, height: 60 }], // Top-left controls
+    });
+
+    assert.equal(resultWP04.placement, 'bottom', 'Must flip below node when near top');
+    assert.ok(resultWP04.y >= 60, 'Y must be below nodeY');
+    assert.ok(resultWP04.y + resultWP04.height <= containerHeight, 'Must stay inside container bottom');
+    assert.equal(resultWP04.arrowPlacement, 'top', 'Arrow must be on top edge pointing up');
+    assert.ok(resultWP04.arrowLeft >= 16 && resultWP04.arrowLeft <= tooltipWidth - 16);
+
+    // Node near top-right under summary card (e.g. WP06 at X=850, Y=70)
+    const resultWP06 = computeTooltipLayout({
+      containerWidth,
+      containerHeight,
+      nodeX: 850,
+      nodeY: 70,
+      tooltipWidth,
+      tooltipHeight,
+      keepOutZones: [{ left: 600, top: 16, width: 384, height: 260 }], // Summary card
+    });
+
+    assert.equal(resultWP06.placement, 'bottom', 'Must flip below node WP06');
+    // Must evade summary card horizontally
+    assert.ok(
+      resultWP06.x + resultWP06.width <= 600 || resultWP06.y >= 276,
+      'Must not intersect top-right summary card keep-out zone'
+    );
+    assert.ok(resultWP06.arrowLeft >= 16 && resultWP06.arrowLeft <= tooltipWidth - 16);
+  });
+
+  await t.test('clamps tooltip strictly within left and right container edges (WP07, WP01)', () => {
+    const containerWidth = 900;
+    const containerHeight = 600;
+    const tooltipWidth = 300;
+    const tooltipHeight = 140;
+    const margin = 12;
+
+    // Node near right edge (WP07 at X=880, Y=300)
+    const resultRight = computeTooltipLayout({
+      containerWidth,
+      containerHeight,
+      nodeX: 880,
+      nodeY: 300,
+      tooltipWidth,
+      tooltipHeight,
+      margin,
+    });
+
+    assert.ok(
+      resultRight.x + resultRight.width <= containerWidth - margin,
+      `Right edge ${resultRight.x + resultRight.width} must be <= ${containerWidth - margin}`
+    );
+    assert.ok(resultRight.x >= margin);
+    // Arrow should be biased towards right edge of tooltip pointing at nodeX=880
+    assert.ok(resultRight.arrowLeft >= tooltipWidth - 30, 'Arrow must slide right to point at edge node');
+
+    // Node near left edge (WP01 at X=20, Y=300)
+    const resultLeft = computeTooltipLayout({
+      containerWidth,
+      containerHeight,
+      nodeX: 20,
+      nodeY: 300,
+      tooltipWidth,
+      tooltipHeight,
+      margin,
+    });
+
+    assert.ok(resultLeft.x >= margin, `Left edge ${resultLeft.x} must be >= ${margin}`);
+    assert.ok(resultLeft.arrowLeft <= 30, 'Arrow must slide left to point at edge node');
+  });
+
+  await t.test('keeps tooltip inside container for bottom edge nodes (WP09, WP10)', () => {
+    const containerWidth = 1000;
+    const containerHeight = 700;
+    const tooltipWidth = 300;
+    const tooltipHeight = 140;
+    const margin = 12;
+
+    // Node near bottom (WP09 at X=700, Y=680)
+    const resultBottom = computeTooltipLayout({
+      containerWidth,
+      containerHeight,
+      nodeX: 700,
+      nodeY: 680,
+      tooltipWidth,
+      tooltipHeight,
+      margin,
+    });
+
+    assert.equal(resultBottom.placement, 'top', 'Must remain top placement when near bottom');
+    assert.ok(resultBottom.y + resultBottom.height <= containerHeight - margin);
+    assert.ok(resultBottom.y >= margin);
   });
 });
