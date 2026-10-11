@@ -1772,7 +1772,7 @@ export default function InteractiveFloorPlan({
       </div>
 
       {/* ── Leaflet Map Container ── */}
-      <div className="relative flex-1 w-full h-full">
+      <div className="relative flex-1 w-full h-full z-map-content">
         <MapContainer
           crs={L.CRS.Simple}
           zoomControl={false}
