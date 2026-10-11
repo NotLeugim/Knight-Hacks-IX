@@ -6,8 +6,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import { TopBar } from './TopBar';
 import { SubToolbar } from './SubToolbar';
 import { SegmentedTabs, type TabItem } from './SegmentedTabs';
-import { DateRangeSelect } from './DateRangeSelect';
-import { SplitRefreshButton } from './SplitRefreshButton';
 import { Pill } from './Pill';
 import { fetchAnalytics } from '@/lib/api';
 
@@ -16,6 +14,7 @@ const NAV_TABS: TabItem[] = [
   { id: '/anomalies', label: 'Anomalies', badge: 3 },
   { id: '/missions', label: 'Missions' },
   { id: '/insights', label: 'Insights' },
+  { id: '/weather', label: 'Weather' },
 ];
 
 const ROUTE_TITLES: Record<string, string> = {
@@ -24,6 +23,7 @@ const ROUTE_TITLES: Record<string, string> = {
   '/anomalies': 'Fleet Anomalies',
   '/missions': 'Mission History & Summaries',
   '/insights': 'Fleet Insights & Analytics',
+  '/weather': 'Plant Weather & Operations Impact',
   '/design-system': 'Design System Specification',
 };
 
@@ -67,6 +67,8 @@ export function AppShell({ children }: AppShellProps) {
     ? '/missions'
     : pathname.startsWith('/insights')
     ? '/insights'
+    : pathname.startsWith('/weather')
+    ? '/weather'
     : '/';
 
   // Contextual page title per route
@@ -95,10 +97,9 @@ export function AppShell({ children }: AppShellProps) {
       {/* ── Fixed 64px TopBar ── */}
       <TopBar />
 
-      {/* ── Fixed 48px SubToolbar with Contextual Title & Split Refresh ── */}
+      {/* ── Fixed 48px SubToolbar with Contextual Title ── */}
       <SubToolbar
         title={currentTitle}
-        showFilter={true}
         centerSlot={
           <SegmentedTabs
             tabs={NAV_TABS}
@@ -108,26 +109,16 @@ export function AppShell({ children }: AppShellProps) {
           />
         }
         rightSlot={
-          <>
-            <Link
-              href="/missions"
-              id="fleet-confidence-pill-link"
-              className="hover:opacity-85 transition-opacity inline-flex items-center"
-            >
-              <Pill variant={pillVariant} size="md">
-                <span className="text-white/80">Fleet Confidence:</span>{' '}
-                <span className="font-bold">{pillText}</span>
-              </Pill>
-            </Link>
-
-            <Pill variant="live" size="md" pulse>
-              LIVE
+          <Link
+            href="/missions"
+            id="fleet-confidence-pill-link"
+            className="hover:opacity-85 transition-opacity inline-flex items-center"
+          >
+            <Pill variant={pillVariant} size="md">
+              <span className="text-white/80">Fleet Confidence:</span>{' '}
+              <span className="font-bold">{pillText}</span>
             </Pill>
-
-            <DateRangeSelect value="6m" />
-
-            <SplitRefreshButton />
-          </>
+          </Link>
         }
       />
 
