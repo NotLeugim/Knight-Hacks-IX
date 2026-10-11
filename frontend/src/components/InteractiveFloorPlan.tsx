@@ -6,6 +6,7 @@ import {
   MapContainer,
   SVGOverlay,
   Marker,
+  Tooltip,
   useMap,
   useMapEvents,
 } from 'react-leaflet';
@@ -18,13 +19,24 @@ import {
   Zap,
   Navigation,
   AlertTriangle,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import type { TriageAnomaly } from '@/lib/triageTypes';
 import {
   ActionRecord,
-  WaypointActionSummary,
-  resolveWaypointActionStatus,
-  computeAllWaypointsActionSummaries,
+  WaypointHeatMetrics,
+  resolveWaypointHeat,
+  computeAllWaypointsHeat,
+  resolveWaypointFailureDetails,
+  computeFleetFailureSummary,
+  WaypointFailureDetails,
+  FleetFailureSummary,
+  formatActionTypeName,
+  computeTooltipLayout,
+  computePinnedPanelLayout,
+  BoundingBox,
 } from '@/lib/actionMode';
 import { actionsFixture } from '@/lib/actionsFixture';
 
@@ -63,7 +75,7 @@ export interface InteractiveFloorPlanProps {
   actions?: ActionRecord[];
   overlayMode?: OverlayMode;
   onOverlayModeChange?: (mode: OverlayMode) => void;
-  onNodeSelect?: (nodeId: string, payload?: ActionRecord | null) => void;
+  onNodeSelect?: (nodeId: string, payload?: any) => void;
 }
 
 // ── Waypoint Data Definitions (Clean Nominal Baseline) ───────────────────────
@@ -339,9 +351,134 @@ function createBlueprintPin(
   wp: FloorWaypoint,
   isSelected: boolean,
   mode: OverlayMode = 'pathfinding',
-  actionSummary?: WaypointActionSummary
+  heat?: WaypointHeatMetrics
 ) {
   if (typeof window === 'undefined') return undefined;
+
+  if (mode === 'action' && heat) {
+    const isFailing = heat.isFailing;
+    const color = heat.color;
+    const radius = heat.glowRadius;
+    const opacity = heat.glowOpacity;
+
+    // Anchor at exact center: iconSize is [40, 40], iconAnchor is [20, 20]
+    const html = `
+      <div class="action-heatmap-pin-wrapper" style="
+        position: relative;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: visible;
+      ">
+        <style>
+          .action-heatmap-pin-wrapper {
+            overflow: visible !important;
+          }
+          @keyframes heatmap-halo-breathe {
+            0% { transform: scale(0.94); opacity: ${Math.max(0.25, opacity * 0.85)}; }
+            100% { transform: scale(1.06); opacity: ${opacity}; }
+          }
+          @keyframes heatmap-core-pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.18); }
+            100% { transform: scale(1); }
+          }
+        </style>
+
+        <!-- Soft Radial Glow / Blurred Gradient (Additive / Screen Blended) -->
+        <div style="
+          position: absolute;
+          left: ${20 - radius}px;
+          top: ${20 - radius}px;
+          width: ${radius * 2}px;
+          height: ${radius * 2}px;
+          border-radius: 9999px;
+          background: radial-gradient(circle, ${heat.glowRgba} 0%, ${color}55 35%, ${color}20 60%, transparent 75%);
+          mix-blend-mode: screen;
+          filter: blur(8px);
+          pointer-events: none;
+          z-index: 1;
+          ${isFailing ? 'animation: heatmap-halo-breathe 2.4s ease-in-out infinite alternate;' : ''}
+        "></div>
+
+        ${
+          isFailing
+            ? `
+        <!-- Outer diffuse glow for adjacent hot node blending -->
+        <div style="
+          position: absolute;
+          left: ${20 - Math.round(radius * 1.35)}px;
+          top: ${20 - Math.round(radius * 1.35)}px;
+          width: ${Math.round(radius * 2.7)}px;
+          height: ${Math.round(radius * 2.7)}px;
+          border-radius: 9999px;
+          background: radial-gradient(circle, ${heat.glowRgba} 0%, transparent 65%);
+          mix-blend-mode: screen;
+          filter: blur(14px);
+          pointer-events: none;
+          opacity: 0.6;
+          z-index: 0;
+        "></div>
+        `
+            : ''
+        }
+
+        <!-- Small Solid Core Marker (Clickable & Identifiable) -->
+        <div style="
+          position: relative;
+          z-index: 10;
+          width: 14px;
+          height: 14px;
+          border-radius: 9999px;
+          background-color: ${color};
+          border: 2px solid ${isFailing ? '#ffffff' : '#a7f3d0'};
+          box-shadow: 0 0 10px ${color}, inset 0 0 3px rgba(0, 0, 0, 0.4);
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          ${isSelected ? 'transform: scale(1.4); box-shadow: 0 0 20px #ffffff;' : ''}
+          ${isFailing && heat.heatScore > 0.4 ? 'animation: heatmap-core-pulse 2s ease-in-out infinite;' : ''}
+        ">
+          <span style="width: 4px; height: 4px; border-radius: 9999px; background-color: #071b33;"></span>
+        </div>
+
+        <!-- Waypoint ID Pill Label -->
+        <div style="
+          position: absolute;
+          top: 26px;
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 12;
+          padding: 1px 4px;
+          border-radius: 4px;
+          background-color: rgba(7, 27, 51, 0.95);
+          border: 1px solid ${color};
+          color: #ffffff;
+          font-family: ui-monospace, monospace;
+          font-size: 9px;
+          font-weight: 700;
+          letter-spacing: 0.04em;
+          white-space: nowrap;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
+          pointer-events: none;
+        ">
+          ${wp.id}${isFailing ? ` · ${heat.failedCount}F` : ''}
+        </div>
+      </div>
+    `;
+
+    return L.divIcon({
+      className: 'heatmap-waypoint-pin',
+      html,
+      iconSize: [40, 40],
+      iconAnchor: [20, 20],
+      popupAnchor: [0, -20],
+    });
+  }
 
   let isCritical = wp.status === 'critical';
   let isWarning = wp.status === 'warning';
@@ -350,23 +487,15 @@ function createBlueprintPin(
   let color = '#38bdf8'; // Electric blue default
   let glow = 'rgba(56, 189, 248, 0.6)';
 
-  if (mode === 'action' && actionSummary) {
-    color = actionSummary.badgeHex;
-    glow = actionSummary.glowRgba;
-    isCritical = actionSummary.color === 'red';
-    isWarning = actionSummary.color === 'yellow';
-    isNominal = actionSummary.color === 'green';
-  } else {
-    if (isCritical) {
-      color = '#ef4444';
-      glow = 'rgba(239, 68, 68, 0.9)';
-    } else if (isWarning) {
-      color = '#f59e0b';
-      glow = 'rgba(245, 158, 11, 0.8)';
-    } else if (isNominal) {
-      color = '#10b981';
-      glow = 'rgba(16, 185, 129, 0.8)';
-    }
+  if (isCritical) {
+    color = '#ef4444';
+    glow = 'rgba(239, 68, 68, 0.9)';
+  } else if (isWarning) {
+    color = '#f59e0b';
+    glow = 'rgba(245, 158, 11, 0.8)';
+  } else if (isNominal) {
+    color = '#10b981';
+    glow = 'rgba(16, 185, 129, 0.8)';
   }
 
   // Exact anchor positioning: iconSize is [32, 42], iconAnchor is [16, 42].
@@ -539,6 +668,46 @@ function MapInteractionController({
       map.fitBounds(defaultBounds, { padding: [6, 6], duration: 0.8 });
     }
   }, [activeFloor, defaultBounds, selectedIssueId, selectedWp, map]);
+
+  return null;
+}
+
+// ── Action Mode Map Position Controller: tracks container coordinates for hovered & selected markers ──
+
+function ActionMapPositionController({
+  hoveredWpId,
+  waypoints,
+  onHoverPosChange,
+}: {
+  hoveredWpId: string | null;
+  waypoints: FloorWaypoint[];
+  onHoverPosChange: (pos: { x: number; y: number } | null) => void;
+}) {
+  const map = useMap();
+
+  const updatePositions = useCallback(() => {
+    if (hoveredWpId) {
+      const hWp = waypoints.find((w) => w.id === hoveredWpId);
+      if (hWp) {
+        const pt = map.latLngToContainerPoint(hWp.coords);
+        onHoverPosChange({ x: pt.x, y: pt.y });
+      } else {
+        onHoverPosChange(null);
+      }
+    } else {
+      onHoverPosChange(null);
+    }
+  }, [hoveredWpId, waypoints, map, onHoverPosChange]);
+
+  useEffect(() => {
+    updatePositions();
+  }, [updatePositions]);
+
+  useMapEvents({
+    move: updatePositions,
+    zoom: updatePositions,
+    resize: updatePositions,
+  });
 
   return null;
 }
@@ -1150,10 +1319,86 @@ export default function InteractiveFloorPlan({
 
   const currentActions = actions ?? actionsFixture;
 
-  // Compute Action Mode summaries across all waypoints
-  const actionSummaries = useMemo(() => {
+  const [fleetSummaryExpanded, setFleetSummaryExpanded] = useState<boolean>(true);
+
+  // Container ref and tooltip hover state
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [hoveredWpId, setHoveredWpId] = useState<string | null>(null);
+  const [hoveredPos, setHoveredPos] = useState<{ x: number; y: number } | null>(null);
+
+  // Progressive disclosure states for pinned failure detail panel
+  const [expandedEvidenceIds, setExpandedEvidenceIds] = useState<Record<string, boolean>>({});
+  const [showAllCauses, setShowAllCauses] = useState<boolean>(false);
+  const [showIndividualActions, setShowIndividualActions] = useState<boolean>(false);
+
+  // Clear hover state on mode change or floor switch
+  useEffect(() => {
+    setHoveredWpId(null);
+    setHoveredPos(null);
+  }, [activeMode, activeFloor]);
+
+  // Reset progressive disclosure on waypoint selection change
+  useEffect(() => {
+    setExpandedEvidenceIds({});
+    setShowAllCauses(false);
+    setShowIndividualActions(false);
+  }, [selectedWp?.id]);
+
+  const getKeepOutZones = useCallback((): BoundingBox[] => {
+    if (!containerRef.current) return [];
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const zones: BoundingBox[] = [];
+
+    const ids = ['mode-toggle-segmented', 'action-mode-legend', 'fleet-failure-summary-card'];
+    for (const id of ids) {
+      const el = document.getElementById(id);
+      if (el) {
+        const r = el.getBoundingClientRect();
+        zones.push({
+          left: Math.max(0, r.left - containerRect.left),
+          top: Math.max(0, r.top - containerRect.top),
+          width: r.width,
+          height: r.height,
+        });
+      }
+    }
+
+    if (zones.length === 0) {
+      zones.push({
+        left: 16,
+        top: 16,
+        width: 440,
+        height: 64,
+      });
+      zones.push({
+        left: Math.max(0, containerRect.width - 420),
+        top: 16,
+        width: 400,
+        height: fleetSummaryExpanded ? 340 : 130,
+      });
+    }
+
+    return zones;
+  }, [fleetSummaryExpanded]);
+
+  // Compute Action Mode failure heat across all waypoints
+  const waypointHeatMap = useMemo(() => {
     const ids = FLOOR_WAYPOINTS.map((w) => w.id);
-    return computeAllWaypointsActionSummaries(ids, currentActions);
+    return computeAllWaypointsHeat(ids, currentActions);
+  }, [currentActions]);
+
+  // Compute Action Mode failure details across all waypoints
+  const waypointFailureDetailsMap = useMemo(() => {
+    const detailsMap: Record<string, WaypointFailureDetails> = {};
+    for (const wp of FLOOR_WAYPOINTS) {
+      detailsMap[wp.id] = resolveWaypointFailureDetails(wp.id, currentActions);
+    }
+    return detailsMap;
+  }, [currentActions]);
+
+  // Compute fleet-level failure summary across all missions
+  const fleetSummary = useMemo(() => {
+    return computeFleetFailureSummary(currentActions);
   }, [currentActions]);
 
   // Compute dynamic status of all waypoints across both floors based on hoisted anomalies
@@ -1266,11 +1511,23 @@ export default function InteractiveFloorPlan({
       onSelectWaypointId?.(wp.id);
       onSelectWaypoint?.(wp);
 
-      // In Action Mode: clicking a red node triggers callback to parent (Smart Drawer contract)
+      // In Action Mode: clicking any waypoint with failedCount > 0 calls onNodeSelect(nodeId, payload)
       if (activeMode === 'action') {
-        const summary = actionSummaries[wp.id];
-        if (summary?.isRed) {
-          onNodeSelect?.(wp.id, summary.worstAction);
+        const heat = waypointHeatMap[wp.id];
+        const details = waypointFailureDetailsMap[wp.id];
+        if (heat && heat.failedCount > 0) {
+          const payload = {
+            waypointId: wp.id,
+            failedCount: heat.failedCount,
+            totalCount: heat.totalCount,
+            failureRate: heat.failureRate,
+            heatScore: heat.heatScore,
+            color: heat.color,
+            actionTypeBreakdown: details?.actionTypeBreakdown || [],
+            possibleCauses: details?.possibleCauses || [],
+            failedActions: details?.failedActions || [],
+          };
+          onNodeSelect?.(wp.id, payload);
         }
       }
 
@@ -1291,7 +1548,7 @@ export default function InteractiveFloorPlan({
         onSelectIssueId?.(null);
       }
     },
-    [activeMode, actionSummaries, onNodeSelect, anomalies, onSelectIssueId, onSelectWaypointId, onSelectWaypoint]
+    [activeMode, waypointHeatMap, waypointFailureDetailsMap, onNodeSelect, anomalies, onSelectIssueId, onSelectWaypointId, onSelectWaypoint]
   );
 
   const handleDismiss = useCallback(() => {
@@ -1301,8 +1558,22 @@ export default function InteractiveFloorPlan({
     onSelectWaypoint?.(null);
   }, [onSelectIssueId, onSelectWaypointId, onSelectWaypoint]);
 
+  // Dismiss pinned panel on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleDismiss();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleDismiss]);
+
+
+
   return (
     <div
+      ref={containerRef}
       className={`relative w-full h-full flex flex-col bg-[#071b33] text-slate-100 overflow-hidden rounded-xl border border-sky-900 shadow-2xl select-none ${className}`}
       style={style}
     >
@@ -1363,8 +1634,8 @@ export default function InteractiveFloorPlan({
           })}
         </div>
 
-        {/* SPOT Patrol Route Toggle (Active in Pathfinding Mode; Stripped in Action Mode) */}
-        {activeMode === 'pathfinding' ? (
+        {/* SPOT Patrol Route Toggle (Active in Pathfinding Mode) */}
+        {activeMode === 'pathfinding' && (
           <button
             id="toggle-patrol-route"
             onClick={() => setShowRoute((prev) => !prev)}
@@ -1382,37 +1653,123 @@ export default function InteractiveFloorPlan({
               }`}
             />
           </button>
-        ) : (
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-semibold bg-[#0c2340]/80 border border-sky-800/80 text-sky-300 backdrop-blur-md shadow-lg">
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-            <span>Path Clutter Stripped</span>
-          </div>
         )}
       </div>
 
-      {/* ── Top-Right Legend: Action Mode vs Pathfinding Blueprint Status ── */}
+      {/* ── Top-Right Legend: Action Mode Heat Map vs Pathfinding Blueprint Status ── */}
       {activeMode === 'action' ? (
-        <div
-          id="action-mode-legend"
-          className="absolute top-4 right-4 z-[1000] flex items-center gap-3 bg-[#0c2340]/95 backdrop-blur-md px-3.5 py-1.5 rounded-lg border border-sky-500/60 shadow-xl text-xs font-mono"
-        >
-          <span className="text-[11px] font-bold text-sky-400 uppercase tracking-wider pr-1 border-r border-sky-800 hidden sm:inline">
-            Action Status
-          </span>
-          <div className="flex items-center gap-1.5" title="Action succeeded with no anomalies">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#10b981]"></span>
-            <span className="text-emerald-300 font-semibold text-[11px]">Green: Succeeded</span>
+        <div className="absolute top-4 right-4 z-[1000] flex flex-col items-end gap-2">
+          {/* Action Mode Heat Legend */}
+          <div
+            id="action-mode-legend"
+            className="flex items-center gap-2.5 bg-[#0c2340]/95 backdrop-blur-md px-3.5 py-1.5 rounded-lg border border-sky-500/60 shadow-xl text-xs font-mono"
+          >
+            <div className="flex items-center gap-1.5 text-sky-300 font-bold text-[11px] uppercase tracking-wider">
+              <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
+              <span>Failure rate:</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-emerald-400 font-semibold">Low</span>
+              <div
+                className="w-24 sm:w-32 h-2.5 rounded-full shadow-inner border border-sky-700/60"
+                style={{
+                  background: 'linear-gradient(to right, #10b981 0%, #eab308 25%, #f97316 60%, #dc2626 100%)',
+                }}
+                title="Continuous heat ramp: Green (Low/0%) → Yellow → Orange → Red (High failure rate)"
+              />
+              <span className="text-[10px] text-red-400 font-bold">High</span>
+            </div>
           </div>
-          <div className="flex items-center gap-1.5" title="Low or Medium anomaly flagged">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_#f59e0b]"></span>
-            <span className="text-amber-300 font-semibold text-[11px]">Yellow: Med/Low</span>
-          </div>
-          <div className="flex items-center gap-1.5" title="Action failed or High/Critical anomaly detected">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-80"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500 shadow-[0_0_10px_#ef4444]"></span>
-            </span>
-            <span className="text-red-400 font-bold text-[11px]">Red: Failed / High/Crit</span>
+
+          {/* ── Top-Right Fleet Failure Summary Card (Completed Mission Paradox) ── */}
+          <div
+            id="fleet-failure-summary-card"
+            className="w-80 sm:w-96 bg-[#0c2340]/95 backdrop-blur-md rounded-xl border border-sky-600/70 shadow-2xl p-3 text-xs font-mono select-none animate-in fade-in slide-in-from-top-1 duration-200"
+          >
+            <div className="flex items-center justify-between border-b border-sky-800/80 pb-1.5 mb-1.5">
+              <div className="flex items-center gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span className="font-bold text-white text-[11px] uppercase tracking-wide">
+                  Mission Paradox Summary
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFleetSummaryExpanded((prev) => !prev)}
+                className="text-[10px] text-sky-300 hover:text-white px-1.5 py-0.5 rounded bg-sky-950 border border-sky-800 transition-colors flex items-center gap-1 cursor-pointer"
+                aria-label="Toggle fleet failure summary"
+              >
+                <span>{fleetSummaryExpanded ? 'Collapse' : 'Expand'}</span>
+                {fleetSummaryExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+              </button>
+            </div>
+
+            {/* Main Stats Line */}
+            <div className="flex items-center justify-between text-[11px] mb-1.5">
+              <span className="text-slate-300">
+                <strong className="text-red-400 font-bold">{fleetSummary.totalFailedActions}</strong> failed actions in{' '}
+                <strong className="text-amber-300 font-bold">{fleetSummary.missionsWithFailuresCount}</strong> of{' '}
+                <strong className="text-white">{fleetSummary.totalMissionsCount}</strong> missions
+              </span>
+              <span className="text-[10px] text-red-300 font-bold px-1.5 py-0.5 rounded bg-red-950/60 border border-red-800/60">
+                {(fleetSummary.fleetFailureRate * 100).toFixed(1)}% Fail
+              </span>
+            </div>
+
+            {fleetSummaryExpanded && (
+              <div className="space-y-2 pt-1 border-t border-sky-900/60 text-[10px]">
+                {/* Top Failing Waypoints */}
+                <div>
+                  <div className="text-slate-400 uppercase font-semibold text-[9px] mb-1">
+                    Top Failing Waypoints:
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {fleetSummary.topFailingWaypoints.slice(0, 5).map((wp) => (
+                      <span
+                        key={wp.waypointId}
+                        className="px-1.5 py-0.5 rounded bg-[#081a30] border border-sky-800 text-sky-200"
+                      >
+                        <strong>{wp.waypointId}</strong> ({wp.failedCount}F)
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Top Failed Action Types */}
+                <div>
+                  <div className="text-slate-400 uppercase font-semibold text-[9px] mb-1">
+                    Top Failed Action Types:
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {fleetSummary.topFailedActionTypes.slice(0, 4).map((at) => (
+                      <span
+                        key={at.actionType}
+                        className="px-1.5 py-0.5 rounded bg-[#081a30] border border-sky-800 text-slate-200"
+                      >
+                        {at.actionType} <span className="text-red-400 font-bold">×{at.count}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Top Cause Categories */}
+                <div>
+                  <div className="text-slate-400 uppercase font-semibold text-[9px] mb-1">
+                    Top Cause Categories:
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {fleetSummary.topCauseCategories.filter((c) => c.count > 0).map((c) => (
+                      <span
+                        key={c.category}
+                        className="px-1.5 py-0.5 rounded bg-[#081a30] border border-sky-800 text-amber-300"
+                      >
+                        {c.category}: <strong>{c.count}</strong>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       ) : (
@@ -1466,6 +1823,15 @@ export default function InteractiveFloorPlan({
             onDismiss={handleDismiss}
           />
 
+          {/* Action Mode Map Position Controller: tracks container coordinates for hovered markers */}
+          {activeMode === 'action' && (
+            <ActionMapPositionController
+              hoveredWpId={hoveredWpId}
+              waypoints={visibleWaypoints}
+              onHoverPosChange={setHoveredPos}
+            />
+          )}
+
           {/* Blueprint SVG Overlays (Polylines stripped in Action Mode) */}
           {activeFloor === 'Floor 1' && (
             <Floor1BlueprintOverlay showRoute={activeMode === 'pathfinding' && showRoute} />
@@ -1474,11 +1840,11 @@ export default function InteractiveFloorPlan({
             <Floor2BlueprintOverlay showRoute={activeMode === 'pathfinding' && showRoute} />
           )}
 
-          {/* Waypoint Markers (Rendered with Action Mode status colors when active) */}
+          {/* Waypoint Markers (Rendered with Action Mode failure heat map when active) */}
           {visibleWaypoints.map((wp) => {
             const isSelected = selectedWp?.id === wp.id;
-            const actionSummary = actionSummaries[wp.id];
-            const icon = createBlueprintPin(wp, isSelected, activeMode, actionSummary);
+            const heat = waypointHeatMap[wp.id];
+            const icon = createBlueprintPin(wp, isSelected, activeMode, heat);
             if (!icon) return null;
 
             return (
@@ -1493,6 +1859,16 @@ export default function InteractiveFloorPlan({
                     }
                     handleMarkerClick(wp);
                   },
+                  mouseover: () => {
+                    if (activeMode === 'action') {
+                      setHoveredWpId(wp.id);
+                    }
+                  },
+                  mouseout: () => {
+                    if (activeMode === 'action') {
+                      setHoveredWpId((prev) => (prev === wp.id ? null : prev));
+                    }
+                  },
                 }}
               />
             );
@@ -1500,8 +1876,372 @@ export default function InteractiveFloorPlan({
         </MapContainer>
       </div>
 
-      {/* ── Bottom-Left Selected Waypoint / Issue Drawer / Telemetry Card ── */}
-      {selectedWp && (
+      {/* ── Action Mode Hover Tooltip (Rendered outside MapContainer at z-[1200] above all overlays) ── */}
+      {activeMode === 'action' && hoveredWpId && hoveredPos && waypointHeatMap[hoveredWpId] && (() => {
+        const hoveredWp = visibleWaypoints.find((w) => w.id === hoveredWpId);
+        const heat = waypointHeatMap[hoveredWpId];
+        const failureDetails = waypointFailureDetailsMap[hoveredWpId];
+        if (!hoveredWp || !heat) return null;
+
+        const containerWidth = containerRef.current?.clientWidth || 1000;
+        const containerHeight = containerRef.current?.clientHeight || 700;
+        const keepOutZones = getKeepOutZones();
+
+        const layout = computeTooltipLayout({
+          containerWidth,
+          containerHeight,
+          nodeX: hoveredPos.x,
+          nodeY: hoveredPos.y,
+          tooltipWidth: 310,
+          tooltipHeight: 145,
+          keepOutZones,
+          pinOffset: 20,
+          margin: 14,
+        });
+
+        return (
+          <div
+            id="action-mode-hover-tooltip"
+            role="tooltip"
+            className="absolute z-[1200] pointer-events-none transition-[left,top] duration-75 ease-out"
+            style={{
+              left: `${layout.x}px`,
+              top: `${layout.y}px`,
+              width: 'max-content',
+              maxWidth: '320px',
+            }}
+          >
+            <div className="relative bg-[#071b33]/96 backdrop-blur-md border border-sky-400/80 rounded-xl p-2.5 shadow-2xl text-slate-100 font-mono text-xs w-full [overflow-wrap:anywhere] break-words whitespace-normal ring-1 ring-sky-500/20">
+              {/* Header */}
+              <div className="flex items-center justify-between gap-2 border-b border-sky-800/80 pb-1.5 mb-1.5 min-w-0">
+                <span className="font-bold flex items-center gap-1.5 min-w-0">
+                  <span
+                    className="w-2 h-2 rounded-full inline-block shrink-0 shadow-[0_0_6px_currentColor]"
+                    style={{ backgroundColor: heat.color, color: heat.color }}
+                  />
+                  <span className="text-white font-bold tracking-wide">{hoveredWp.id}</span>
+                </span>
+                <span
+                  className="text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 whitespace-nowrap"
+                  style={{
+                    backgroundColor: `${heat.color}25`,
+                    color: heat.color,
+                    border: `1px solid ${heat.color}40`,
+                  }}
+                >
+                  {heat.failedCount > 0
+                    ? `${heat.failedCount} / ${heat.totalCount} Failed`
+                    : '0 Failures'}
+                </span>
+              </div>
+
+              {/* Action-type breakdown rendered as wrapped chips */}
+              {failureDetails && failureDetails.actionTypeBreakdown.length > 0 ? (
+                <div className="flex flex-wrap gap-1 mb-1.5 min-w-0">
+                  {failureDetails.actionTypeBreakdown.map((t) => (
+                    <span
+                      key={t.actionType}
+                      className="px-1.5 py-0.5 rounded bg-sky-950/90 border border-sky-700/80 text-[10px] text-sky-200 inline-flex items-center gap-1 min-w-0 font-medium"
+                    >
+                      <span className="text-slate-100">{t.actionType}</span>
+                      <span className="text-red-400 font-bold">×{t.count}</span>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-[11px] text-emerald-300 mb-1 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  <span>All {heat.totalCount} actions nominal</span>
+                </div>
+              )}
+
+              {/* Cause Line - Wrapped inside box */}
+              {failureDetails && failureDetails.possibleCauses.length > 0 && (
+                <div className="text-[10px] text-amber-300/90 font-sans leading-snug [overflow-wrap:anywhere] break-words whitespace-normal border-t border-sky-900/60 pt-1">
+                  <span className="font-semibold text-amber-200">Cause: </span>
+                  <span>{failureDetails.possibleCauses[0].hypothesis}</span>
+                </div>
+              )}
+
+              {/* Footer hint */}
+              <div className="text-[9px] text-slate-400 mt-1 font-sans border-t border-sky-900/60 pt-1">
+                Click to pin failure details
+              </div>
+
+              {/* Dynamic Pointer Arrow pointing directly at nodeX */}
+              <div
+                className="absolute w-2.5 h-2.5 bg-[#071b33] border border-sky-400/80 pointer-events-none"
+                style={{
+                  left: `${layout.arrowLeft}px`,
+                  ...(layout.placement === 'top'
+                    ? {
+                        bottom: '-5px',
+                        borderTop: 'none',
+                        borderLeft: 'none',
+                        transform: 'translateX(-50%) rotate(45deg)',
+                      }
+                    : {
+                        top: '-5px',
+                        borderBottom: 'none',
+                        borderRight: 'none',
+                        transform: 'translateX(-50%) rotate(45deg)',
+                      }),
+                }}
+              />
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Action Mode Pinned Failure Detail & Causes Panel ── */}
+      {activeMode === 'action' && selectedWp && (() => {
+        const heat = waypointHeatMap[selectedWp.id];
+        const details = waypointFailureDetailsMap[selectedWp.id];
+        const hasFailures = details && details.failedCount > 0;
+
+        const containerWidth = containerRef.current?.clientWidth || 1000;
+        const containerHeight = containerRef.current?.clientHeight || 700;
+        const keepOutZones = getKeepOutZones();
+
+        const panelLayout = computePinnedPanelLayout({
+          containerWidth,
+          containerHeight,
+          waypointId: selectedWp.id,
+          panelWidth: 320,
+          margin: 12,
+        });
+
+        const totalCauses = details?.possibleCauses || [];
+        const visibleCauses = showAllCauses ? totalCauses : totalCauses.slice(0, 2);
+
+        const positionStyles: React.CSSProperties = panelLayout.isBottomSheet
+          ? {
+              left: '12px',
+              right: '12px',
+              bottom: '12px',
+              maxHeight: `${panelLayout.maxHeight}px`,
+            }
+          : panelLayout.dock === 'bottom-right'
+          ? {
+              right: '12px',
+              bottom: '12px',
+              width: `${panelLayout.width}px`,
+              maxHeight: `${panelLayout.maxHeight}px`,
+            }
+          : {
+              left: '12px',
+              bottom: '12px',
+              width: `${panelLayout.width}px`,
+              maxHeight: `${panelLayout.maxHeight}px`,
+            };
+
+        return (
+          <div
+            id="action-mode-failure-detail-panel"
+            className="absolute z-[1100] flex flex-col bg-[#071b33]/96 backdrop-blur-md border border-sky-600/80 p-3 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans select-none ring-1 ring-sky-500/20"
+            style={positionStyles}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-sky-800/80 pb-2 min-w-0 shrink-0">
+              <div className="flex items-center gap-1.5 min-w-0 flex-1 mr-1">
+                <span
+                  className="px-2 py-0.5 rounded bg-[#0c2340] border font-mono font-bold text-xs shrink-0"
+                  style={{ borderColor: heat?.color || '#38bdf8', color: heat?.color || '#38bdf8' }}
+                >
+                  {selectedWp.id}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <h4 className="text-xs font-bold text-white tracking-wide leading-tight line-clamp-2 min-w-0 break-words">
+                      {selectedWp.name}
+                    </h4>
+                    <span
+                      className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                        hasFailures
+                          ? 'bg-red-500/20 text-red-300 border border-red-500/40'
+                          : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                      }`}
+                    >
+                      {hasFailures
+                        ? `${details.failedCount}/${details.totalCount} Failed (${(details.failureRate * 100).toFixed(1)}%)`
+                        : `0 Failures`}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <button
+                id="close-action-detail-panel"
+                onClick={handleDismiss}
+                className="text-slate-400 hover:text-white text-xs p-1 rounded hover:bg-sky-900/50 transition-colors cursor-pointer shrink-0 ml-1"
+                aria-label="Close action detail panel"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Content Area with Internal Vertical Scroll */}
+            {!hasFailures ? (
+              <div className="mt-2 bg-emerald-950/30 border border-emerald-800/60 rounded-lg p-2 text-center shrink-0">
+                <div className="flex items-center justify-center gap-1.5 text-emerald-400 font-semibold text-xs">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span>No Failed Actions</span>
+                </div>
+                <p className="mt-1 text-[10px] text-slate-300 leading-snug">
+                  All {details?.totalCount || 0} actions at this waypoint completed successfully across all recorded missions.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-y-auto custom-scrollbar min-h-0 flex-1 space-y-2 mt-2 pr-0.5">
+                {/* 1. Failed Action Types Chips */}
+                <div>
+                  <div className="text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-1 flex items-center justify-between">
+                    <span>Failed Action Types</span>
+                    <span className="text-[9px] text-sky-400 font-mono">{details.failedCount} Failures</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1 min-w-0">
+                    {details.actionTypeBreakdown.map((t) => (
+                      <span
+                        key={t.actionType}
+                        className="px-1.5 py-0.5 rounded bg-[#0c2340] border border-sky-700/80 text-[10px] font-mono text-sky-200 flex items-center gap-1 min-w-0"
+                      >
+                        <span className="font-medium text-slate-100">{t.actionType}</span>
+                        <span className="bg-red-500/30 text-red-300 px-1 rounded text-[9px] font-bold">
+                          ×{t.count}
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 2. Possible Causes & Evidence (Progressive Disclosure) */}
+                <div>
+                  <div className="text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-1 flex items-center justify-between">
+                    <span className="flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3 text-amber-400 shrink-0" />
+                      <span>Possible Causes ({totalCauses.length})</span>
+                    </span>
+                    {totalCauses.length > 2 && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAllCauses((prev) => !prev)}
+                        className="text-[9px] text-sky-300 hover:text-white transition-colors cursor-pointer"
+                      >
+                        {showAllCauses ? 'Show top 2' : `Show all (${totalCauses.length})`}
+                      </button>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    {visibleCauses.map((cause) => {
+                      const categoryColor =
+                        cause.category === 'Navigation/Obstacle'
+                          ? 'border-amber-500/50 bg-amber-950/20 text-amber-300'
+                          : cause.category === 'Equipment/Sensor'
+                          ? 'border-indigo-500/50 bg-indigo-950/20 text-indigo-300'
+                          : cause.category === 'Robot state (battery)'
+                          ? 'border-rose-500/50 bg-rose-950/20 text-rose-300'
+                          : cause.category === 'Environmental'
+                          ? 'border-cyan-500/50 bg-cyan-950/20 text-cyan-300'
+                          : 'border-slate-600 bg-slate-900/40 text-slate-300';
+
+                      const isEvidenceExpanded = !!expandedEvidenceIds[cause.id];
+
+                      return (
+                        <div
+                          key={cause.id}
+                          className="p-1.5 rounded-lg bg-[#0c2340]/80 border border-sky-800/80 text-xs min-w-0"
+                        >
+                          <div className="flex items-center justify-between gap-1 mb-1 min-w-0">
+                            <span className={`text-[8.5px] font-mono font-bold px-1.5 py-0.5 rounded border uppercase shrink-0 ${categoryColor}`}>
+                              {cause.category}
+                            </span>
+                            <span className="text-[9px] font-mono text-slate-400 truncate">
+                              Explains {cause.explainedCount} of {details.failedCount}
+                            </span>
+                          </div>
+                          <div className="font-semibold text-white text-[10.5px] leading-tight mb-1 whitespace-normal [overflow-wrap:anywhere] break-words">
+                            {cause.hypothesis}
+                          </div>
+                          <div className="flex items-center justify-between pt-0.5 text-[9px]">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedEvidenceIds((prev) => ({
+                                  ...prev,
+                                  [cause.id]: !prev[cause.id],
+                                }))
+                              }
+                              className="text-sky-400 hover:text-sky-200 flex items-center gap-0.5 cursor-pointer font-medium"
+                            >
+                              <span>Evidence</span>
+                              {isEvidenceExpanded ? (
+                                <ChevronUp className="w-2.5 h-2.5" />
+                              ) : (
+                                <ChevronDown className="w-2.5 h-2.5" />
+                              )}
+                            </button>
+                          </div>
+                          {isEvidenceExpanded && (
+                            <p className="mt-1 text-[9.5px] text-slate-300 leading-snug whitespace-normal [overflow-wrap:anywhere] break-words bg-sky-950/40 p-1.5 rounded border border-sky-900/60 animate-in fade-in duration-100">
+                              <span className="text-sky-400 font-semibold font-mono">Evidence: </span>
+                              {cause.evidence}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 3. Individual Failed Actions (Collapsible Accordion Section) */}
+                <div className="border-t border-sky-900/60 pt-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setShowIndividualActions((prev) => !prev)}
+                    className="w-full flex items-center justify-between text-[10px] font-bold text-slate-300 uppercase tracking-wider hover:text-white cursor-pointer py-0.5"
+                  >
+                    <span>Individual Failed Actions ({details.failedActions.length})</span>
+                    {showIndividualActions ? (
+                      <ChevronUp className="w-3 h-3 text-sky-400" />
+                    ) : (
+                      <ChevronDown className="w-3 h-3 text-sky-400" />
+                    )}
+                  </button>
+
+                  {showIndividualActions && (
+                    <div className="max-h-36 overflow-y-auto space-y-1 mt-1.5 pr-0.5 custom-scrollbar animate-in fade-in duration-150">
+                      {details.failedActions.map((act) => (
+                        <div
+                          key={act.action_id}
+                          className="p-1.5 rounded bg-[#091f38] border border-sky-900/80 text-[9.5px] font-mono flex items-center justify-between gap-1.5 hover:bg-[#0c2847] transition-colors min-w-0"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-bold text-sky-200">{act.action_id}</span>
+                              <span className="text-slate-400">({act.mission_id})</span>
+                              <span className="text-white font-sans font-medium">{formatActionTypeName(act.action_type)}</span>
+                            </div>
+                            <div className="text-[8.5px] text-slate-400 mt-0.5">
+                              Bat: {act.battery_pct}% • {act.timestamp ? act.timestamp.replace('2026-', '') : ''}
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="px-1 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/40 text-[8.5px] font-bold uppercase">
+                              {act.failure_type || 'FAILED'}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── Pathfinding Mode Selected Waypoint / Issue Drawer / Telemetry Card ── */}
+      {activeMode === 'pathfinding' && selectedWp && (
         <div
           id="waypoint-telemetry-panel"
           className="absolute bottom-4 left-4 right-4 md:right-auto md:w-96 z-[1000] bg-[#0c2340]/95 backdrop-blur-md border border-sky-700 p-3.5 rounded-xl shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200"
