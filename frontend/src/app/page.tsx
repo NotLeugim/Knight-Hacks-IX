@@ -1,78 +1,74 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import FacilityMap from '../components/3d/FacilityMap';
-import FacilityMap2D from '../components/FacilityMap2D';
+import dynamic from 'next/dynamic';
 import TriageQueue from '../components/ui/TriageQueue';
-import { checkHealth } from '../lib/api';
+import { checkHealth, fetchTriageQueue, TriageAnomaly } from '../lib/api';
+import { triageFixture } from '../lib/triageFixture';
 import { Panel } from '@/components/ui/Panel';
 import { TriageProvider } from '@/context/TriageContext';
 
-export default function Home() {
-  const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d');
+const InteractiveFloorPlan = dynamic(
+  () => import('../components/InteractiveFloorPlan'),
+  { ssr: false }
+);
 
-  // Prove CORS is working by calling the backend health endpoint on mount
+export default function Home() {
+  // Hoisted anomaly data source of truth for the dashboard
+  const [anomalies, setAnomalies] = useState<TriageAnomaly[]>(triageFixture);
+  // Hoisted global issue selection state (tracks specific anomaly ID e.g. 'AN014')
+  const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
+
+  // Health check and synchronized anomaly data fetch on mount
   useEffect(() => {
     checkHealth();
+    fetchTriageQueue()
+      .then((res) => {
+        if (Array.isArray(res?.queue) && res.queue.length > 0) {
+          setAnomalies(res.queue);
+        }
+      })
+      .catch((err) => {
+        console.warn('[SPOTSight] Fallback to fixture in parent dashboard:', err);
+      });
   }, []);
 
   return (
-    <TriageProvider>
+    <TriageProvider initialAnomalies={anomalies}>
       <div className="h-full p-4 sm:p-6 flex flex-col lg:flex-row gap-4 overflow-hidden bg-orbit-bg select-none">
-      {/* ── Left Stage: Facility Map in Orbit Panel ── */}
-      <Panel
-        id="facility-map-container"
-        variant="flush"
-        className="flex-1 h-full min-h-[400px] overflow-hidden relative"
-      >
-        {viewMode === '2d' ? (
-          <FacilityMap2D className="w-full h-full" />
-        ) : (
-          <FacilityMap />
-        )}
-
-        {/* 2D / 3D Switcher */}
-        <div className="absolute bottom-4 right-4 z-[1000] flex gap-1 text-xs bg-slate-900/80 backdrop-blur-md p-1 rounded-lg border border-slate-700/80 shadow-xl">
-          <button
-            id="map-toggle-2d"
-            onClick={() => setViewMode('2d')}
-            className={`px-3 py-1.5 rounded font-medium transition-all ${
-              viewMode === '2d'
-                ? 'border border-blue-500 text-blue-400 bg-blue-600/20 shadow-sm'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-            }`}
-          >
-            2D
-          </button>
-          <button
-            id="map-toggle-3d"
-            onClick={() => setViewMode('3d')}
-            className={`px-3 py-1.5 rounded font-medium transition-all ${
-              viewMode === '3d'
-                ? 'border border-blue-500 text-blue-400 bg-blue-600/20 shadow-sm'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-            }`}
-          >
-            3D
-          </button>
-        </div>
-      </Panel>
-
-      {/* ── Right Column: Triage Queue Sidebar (Full Column Height) ── */}
-      <div
-        id="right-drawer"
-        className="w-full lg:w-80 xl:w-96 h-full flex flex-col shrink-0 overflow-hidden"
-      >
+        {/* ── Left Stage: Facility Map in Orbit Panel ── */}
         <Panel
-          title="Triage Queue"
+          id="facility-map-container"
           variant="flush"
-          className="w-full h-full flex-1 flex flex-col overflow-hidden"
-          bodyClassName="flex-1 min-h-0 flex flex-col overflow-hidden"
+          className="flex-1 h-full min-h-[400px] overflow-hidden relative"
         >
-          <TriageQueue />
+          <InteractiveFloorPlan
+            className="w-full h-full"
+            anomalies={anomalies}
+            selectedIssueId={selectedIssueId}
+            onSelectIssueId={setSelectedIssueId}
+          />
         </Panel>
+
+        {/* ── Right Column: Triage Queue Sidebar (Expanded to Fill Empty Space) ── */}
+        <div
+          id="right-drawer"
+          className="w-full lg:w-[380px] xl:w-[440px] 2xl:w-[480px] h-full flex flex-col shrink-0 overflow-hidden"
+        >
+          <Panel
+            title="Triage Queue"
+            variant="flush"
+            className="w-full h-full flex-1 flex flex-col overflow-hidden"
+            bodyClassName="flex-1 min-h-0 flex flex-col overflow-hidden"
+          >
+            <TriageQueue
+              anomalies={anomalies}
+              selectedIssueId={selectedIssueId}
+              onSelectIssue={setSelectedIssueId}
+            />
+          </Panel>
+        </div>
       </div>
-    </div>
     </TriageProvider>
   );
 }
