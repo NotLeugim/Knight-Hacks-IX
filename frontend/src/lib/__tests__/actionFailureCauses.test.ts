@@ -7,6 +7,7 @@ import {
   resolveWaypointFailureDetails,
   computeFleetFailureSummary,
   computeTooltipLayout,
+  computePinnedPanelLayout,
   rectsIntersect,
 } from '../actionFailureCauses';
 import { ActionRecord } from '../actionMode';
@@ -294,5 +295,67 @@ test('Action Failure Causes & Grouping Helpers', async (t) => {
     assert.equal(resultBottom.placement, 'top', 'Must remain top placement when near bottom');
     assert.ok(resultBottom.y + resultBottom.height <= containerHeight - margin);
     assert.ok(resultBottom.y >= margin);
+  });
+
+  await t.test('computes compact pinned panel layout anchored next to node without covering it', () => {
+    const containerWidth = 1000;
+    const containerHeight = 700;
+
+    // WP05 (center node at X=600, Y=400)
+    const resultWP05 = computePinnedPanelLayout({
+      containerWidth,
+      containerHeight,
+      nodeX: 600,
+      nodeY: 400,
+      panelWidth: 320,
+    });
+
+    assert.equal(resultWP05.isBottomSheet, false);
+    assert.equal(resultWP05.side, 'right', 'Should anchor to the right side where space exists');
+    assert.ok(resultWP05.x >= 600 + 20, 'Panel left edge must be safely to the right of nodeX=600');
+    assert.ok(resultWP05.x + resultWP05.width <= containerWidth - 12);
+    assert.ok(resultWP05.maxHeight <= Math.round(containerHeight * 0.60) + 1, 'Max height capped at ~60%');
+
+    // WP06 (top-right node near summary card at X=880, Y=180)
+    const resultWP06 = computePinnedPanelLayout({
+      containerWidth,
+      containerHeight,
+      nodeX: 880,
+      nodeY: 180,
+      panelWidth: 320,
+      keepOutZones: [{ left: 600, top: 16, width: 384, height: 260 }],
+    });
+
+    assert.equal(resultWP06.side, 'left', 'Must flip to left side when right edge has no room');
+    assert.ok(resultWP06.x + resultWP06.width <= 880 - 20, 'Panel right edge must be safely to the left of nodeX=880');
+    assert.ok(resultWP06.x >= 12, 'Must stay inside left container boundary');
+
+    // WP04 (top-left node at X=250, Y=180 near top toolbar)
+    const resultWP04 = computePinnedPanelLayout({
+      containerWidth,
+      containerHeight,
+      nodeX: 250,
+      nodeY: 180,
+      panelWidth: 320,
+      keepOutZones: [{ left: 16, top: 16, width: 440, height: 60 }],
+    });
+
+    assert.equal(resultWP04.side, 'right', 'Should anchor to right of WP04 away from left toolbar');
+    assert.ok(resultWP04.x >= 250 + 20, 'Must not cover WP04 marker');
+    assert.ok(resultWP04.y >= 60 || resultWP04.x >= 456, 'Must not overlap top-left keep-out zone');
+
+    // Narrow layout (< 640px): Fallback to bottom sheet capped at 40%
+    const resultNarrow = computePinnedPanelLayout({
+      containerWidth: 500,
+      containerHeight: 700,
+      nodeX: 250,
+      nodeY: 300,
+      panelWidth: 320,
+    });
+
+    assert.equal(resultNarrow.isBottomSheet, true, 'Narrow width must trigger bottom-sheet fallback');
+    assert.equal(resultNarrow.side, 'bottom-sheet');
+    assert.ok(resultNarrow.maxHeight <= Math.round(700 * 0.40) + 1, 'Max height capped at 40%');
+    assert.ok(resultNarrow.y >= 700 - resultNarrow.maxHeight - 20, 'Docked at bottom');
   });
 });

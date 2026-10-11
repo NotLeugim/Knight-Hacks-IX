@@ -22,6 +22,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  GripHorizontal,
 } from 'lucide-react';
 import type { TriageAnomaly } from '@/lib/triageTypes';
 import {
@@ -35,6 +36,7 @@ import {
   FleetFailureSummary,
   formatActionTypeName,
   computeTooltipLayout,
+  computePinnedPanelLayout,
   BoundingBox,
 } from '@/lib/actionMode';
 import { actionsFixture } from '@/lib/actionsFixture';
@@ -671,41 +673,57 @@ function MapInteractionController({
   return null;
 }
 
-// ── Action Mode Map Hover Controller: tracks container coordinates for hovered marker ──
+// ── Action Mode Map Position Controller: tracks container coordinates for hovered & selected markers ──
 
-function ActionMapHoverController({
+function ActionMapPositionController({
   hoveredWpId,
+  selectedWpId,
   waypoints,
-  onPositionChange,
+  onHoverPosChange,
+  onSelectedPosChange,
 }: {
   hoveredWpId: string | null;
+  selectedWpId: string | null;
   waypoints: FloorWaypoint[];
-  onPositionChange: (pos: { x: number; y: number } | null) => void;
+  onHoverPosChange: (pos: { x: number; y: number } | null) => void;
+  onSelectedPosChange: (pos: { x: number; y: number } | null) => void;
 }) {
   const map = useMap();
 
-  const updatePos = useCallback(() => {
-    if (!hoveredWpId) {
-      onPositionChange(null);
-      return;
+  const updatePositions = useCallback(() => {
+    if (hoveredWpId) {
+      const hWp = waypoints.find((w) => w.id === hoveredWpId);
+      if (hWp) {
+        const pt = map.latLngToContainerPoint(hWp.coords);
+        onHoverPosChange({ x: pt.x, y: pt.y });
+      } else {
+        onHoverPosChange(null);
+      }
+    } else {
+      onHoverPosChange(null);
     }
-    const wp = waypoints.find((w) => w.id === hoveredWpId);
-    if (!wp) {
-      onPositionChange(null);
-      return;
+
+    if (selectedWpId) {
+      const sWp = waypoints.find((w) => w.id === selectedWpId);
+      if (sWp) {
+        const pt = map.latLngToContainerPoint(sWp.coords);
+        onSelectedPosChange({ x: pt.x, y: pt.y });
+      } else {
+        onSelectedPosChange(null);
+      }
+    } else {
+      onSelectedPosChange(null);
     }
-    const pt = map.latLngToContainerPoint(wp.coords);
-    onPositionChange({ x: pt.x, y: pt.y });
-  }, [hoveredWpId, waypoints, map, onPositionChange]);
+  }, [hoveredWpId, selectedWpId, waypoints, map, onHoverPosChange, onSelectedPosChange]);
 
   useEffect(() => {
-    updatePos();
-  }, [updatePos]);
+    updatePositions();
+  }, [updatePositions]);
 
   useMapEvents({
-    move: updatePos,
-    zoom: updatePos,
-    resize: updatePos,
+    move: updatePositions,
+    zoom: updatePositions,
+    resize: updatePositions,
   });
 
   return null;
@@ -1325,11 +1343,37 @@ export default function InteractiveFloorPlan({
   const [hoveredWpId, setHoveredWpId] = useState<string | null>(null);
   const [hoveredPos, setHoveredPos] = useState<{ x: number; y: number } | null>(null);
 
+  // Selected waypoint position in container coords (for anchoring the pinned panel)
+  const [selectedPos, setSelectedPos] = useState<{ x: number; y: number } | null>(null);
+
+  // Progressive disclosure states for pinned failure detail panel
+  const [expandedEvidenceIds, setExpandedEvidenceIds] = useState<Record<string, boolean>>({});
+  const [showAllCauses, setShowAllCauses] = useState<boolean>(false);
+  const [showIndividualActions, setShowIndividualActions] = useState<boolean>(false);
+
+  // Optional manual drag offset for pinned panel
+  const [panelDragOffset, setPanelDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const isDraggingRef = useRef<boolean>(false);
+  const dragStartRef = useRef<{ mouseX: number; mouseY: number; initialOffsetX: number; initialOffsetY: number }>({
+    mouseX: 0,
+    mouseY: 0,
+    initialOffsetX: 0,
+    initialOffsetY: 0,
+  });
+
   // Clear hover state on mode change or floor switch
   useEffect(() => {
     setHoveredWpId(null);
     setHoveredPos(null);
   }, [activeMode, activeFloor]);
+
+  // Reset progressive disclosure and drag offset on waypoint selection change
+  useEffect(() => {
+    setExpandedEvidenceIds({});
+    setShowAllCauses(false);
+    setShowIndividualActions(false);
+    setPanelDragOffset({ x: 0, y: 0 });
+  }, [selectedWp?.id]);
 
   const getKeepOutZones = useCallback((): BoundingBox[] => {
     if (!containerRef.current) return [];
@@ -1544,6 +1588,46 @@ export default function InteractiveFloorPlan({
     onSelectWaypointId?.(null);
     onSelectWaypoint?.(null);
   }, [onSelectIssueId, onSelectWaypointId, onSelectWaypoint]);
+
+  // Dismiss pinned panel on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleDismiss();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleDismiss]);
+
+  const handlePointerDownHeader = (e: React.PointerEvent) => {
+    if ((e.target as HTMLElement).closest('button')) return;
+    isDraggingRef.current = true;
+    dragStartRef.current = {
+      mouseX: e.clientX,
+      mouseY: e.clientY,
+      initialOffsetX: panelDragOffset.x,
+      initialOffsetY: panelDragOffset.y,
+    };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMoveHeader = (e: React.PointerEvent) => {
+    if (!isDraggingRef.current) return;
+    const dx = e.clientX - dragStartRef.current.mouseX;
+    const dy = e.clientY - dragStartRef.current.mouseY;
+    setPanelDragOffset({
+      x: dragStartRef.current.initialOffsetX + dx,
+      y: dragStartRef.current.initialOffsetY + dy,
+    });
+  };
+
+  const handlePointerUpHeader = (e: React.PointerEvent) => {
+    isDraggingRef.current = false;
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch (_) {}
+  };
 
   return (
     <div
@@ -1797,12 +1881,14 @@ export default function InteractiveFloorPlan({
             onDismiss={handleDismiss}
           />
 
-          {/* Action Mode Map Hover Controller: tracks container coordinates for hovered marker */}
+          {/* Action Mode Map Position Controller: tracks container coordinates for hovered & selected markers */}
           {activeMode === 'action' && (
-            <ActionMapHoverController
+            <ActionMapPositionController
               hoveredWpId={hoveredWpId}
+              selectedWpId={selectedWp?.id || null}
               waypoints={visibleWaypoints}
-              onPositionChange={setHoveredPos}
+              onHoverPosChange={setHoveredPos}
+              onSelectedPosChange={setSelectedPos}
             />
           )}
 
@@ -1973,18 +2059,51 @@ export default function InteractiveFloorPlan({
         const details = waypointFailureDetailsMap[selectedWp.id];
         const hasFailures = details && details.failedCount > 0;
 
+        const containerWidth = containerRef.current?.clientWidth || 1000;
+        const containerHeight = containerRef.current?.clientHeight || 700;
+        const keepOutZones = getKeepOutZones();
+
+        const panelLayout = computePinnedPanelLayout({
+          containerWidth,
+          containerHeight,
+          nodeX: selectedPos?.x,
+          nodeY: selectedPos?.y,
+          panelWidth: 320,
+          keepOutZones,
+          pinClearance: 28,
+          margin: 12,
+        });
+
+        const finalPanelX = panelLayout.isBottomSheet ? panelLayout.x : panelLayout.x + panelDragOffset.x;
+        const finalPanelY = panelLayout.isBottomSheet ? panelLayout.y : panelLayout.y + panelDragOffset.y;
+
+        const totalCauses = details?.possibleCauses || [];
+        const visibleCauses = showAllCauses ? totalCauses : totalCauses.slice(0, 2);
+
         return (
           <div
             id="action-mode-failure-detail-panel"
-            className="absolute bottom-4 left-4 z-[1100] w-[calc(100%-32px)] sm:w-[340px] max-w-[340px] max-h-[calc(100%-32px)] bg-[#071b33]/95 backdrop-blur-md border border-sky-600/80 p-3.5 rounded-xl shadow-2xl overflow-y-auto animate-in fade-in slide-in-from-bottom-2 duration-200 font-sans custom-scrollbar"
+            className="absolute z-[1100] flex flex-col bg-[#071b33]/96 backdrop-blur-md border border-sky-600/80 p-3 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 font-sans select-none ring-1 ring-sky-500/20"
             style={{
-              maxHeight: 'calc(100% - 32px)',
-              maxWidth: '340px',
+              left: `${finalPanelX}px`,
+              top: `${finalPanelY}px`,
+              width: `${panelLayout.width}px`,
+              maxHeight: `${panelLayout.maxHeight}px`,
             }}
           >
-            {/* Header */}
-            <div className="flex items-start justify-between border-b border-sky-800/80 pb-2.5 min-w-0">
-              <div className="flex items-center gap-2 min-w-0">
+            {/* Header (Draggable by header in desktop mode) */}
+            <div
+              onPointerDown={panelLayout.isBottomSheet ? undefined : handlePointerDownHeader}
+              onPointerMove={panelLayout.isBottomSheet ? undefined : handlePointerMoveHeader}
+              onPointerUp={panelLayout.isBottomSheet ? undefined : handlePointerUpHeader}
+              className={`flex items-center justify-between border-b border-sky-800/80 pb-2 min-w-0 shrink-0 ${
+                panelLayout.isBottomSheet ? '' : 'cursor-grab active:cursor-grabbing'
+              }`}
+            >
+              <div className="flex items-center gap-1.5 min-w-0">
+                {!panelLayout.isBottomSheet && (
+                  <GripHorizontal className="w-3.5 h-3.5 text-slate-500 hover:text-slate-300 shrink-0" />
+                )}
                 <span
                   className="px-2 py-0.5 rounded bg-[#0c2340] border font-mono font-bold text-xs shrink-0"
                   style={{ borderColor: heat?.color || '#38bdf8', color: heat?.color || '#38bdf8' }}
@@ -1993,11 +2112,11 @@ export default function InteractiveFloorPlan({
                 </span>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <h4 className="text-xs font-bold text-white tracking-wide whitespace-normal [overflow-wrap:anywhere] break-words">
+                    <h4 className="text-xs font-bold text-white tracking-wide truncate max-w-[130px]">
                       {selectedWp.name}
                     </h4>
                     <span
-                      className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                      className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded shrink-0 ${
                         hasFailures
                           ? 'bg-red-500/20 text-red-300 border border-red-500/40'
                           : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
@@ -2005,12 +2124,9 @@ export default function InteractiveFloorPlan({
                     >
                       {hasFailures
                         ? `${details.failedCount}/${details.totalCount} Failed (${(details.failureRate * 100).toFixed(1)}%)`
-                        : `0 Failures (${details?.totalCount || 0} Total)`}
+                        : `0 Failures`}
                     </span>
                   </div>
-                  <p className="text-[10px] text-sky-300 font-mono mt-0.5 whitespace-normal [overflow-wrap:anywhere] break-words">
-                    {selectedWp.zone} • {selectedWp.assetId}
-                  </p>
                 </div>
               </div>
               <button
@@ -2023,27 +2139,24 @@ export default function InteractiveFloorPlan({
               </button>
             </div>
 
-            {/* Content based on whether node has failures or zero failures */}
+            {/* Content Area with Internal Vertical Scroll */}
             {!hasFailures ? (
-              <div className="mt-2.5 bg-emerald-950/30 border border-emerald-800/60 rounded-lg p-2.5 text-center">
+              <div className="mt-2 bg-emerald-950/30 border border-emerald-800/60 rounded-lg p-2 text-center shrink-0">
                 <div className="flex items-center justify-center gap-1.5 text-emerald-400 font-semibold text-xs">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                   <span>No Failed Actions</span>
                 </div>
-                <p className="mt-1 text-[11px] text-slate-300 whitespace-normal [overflow-wrap:anywhere] break-words">
+                <p className="mt-1 text-[10px] text-slate-300 leading-snug">
                   All {details?.totalCount || 0} actions at this waypoint completed successfully across all recorded missions.
                 </p>
-                <div className="mt-1.5 text-[10px] font-mono text-emerald-300/80">
-                  Waypoint Status: Nominal Operation (100% Reliability)
-                </div>
               </div>
             ) : (
-              <div className="mt-2.5 space-y-3">
-                {/* 1. Breakdown of failed actions by action type */}
+              <div className="overflow-y-auto custom-scrollbar min-h-0 flex-1 space-y-2 mt-2 pr-0.5">
+                {/* 1. Failed Action Types Chips */}
                 <div>
-                  <div className="text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1 flex items-center justify-between">
+                  <div className="text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-1 flex items-center justify-between">
                     <span>Failed Action Types</span>
-                    <span className="text-[10px] text-sky-400 font-mono">{details.failedCount} Total Failures</span>
+                    <span className="text-[9px] text-sky-400 font-mono">{details.failedCount} Failures</span>
                   </div>
                   <div className="flex flex-wrap gap-1 min-w-0">
                     {details.actionTypeBreakdown.map((t) => (
@@ -2051,24 +2164,34 @@ export default function InteractiveFloorPlan({
                         key={t.actionType}
                         className="px-1.5 py-0.5 rounded bg-[#0c2340] border border-sky-700/80 text-[10px] font-mono text-sky-200 flex items-center gap-1 min-w-0"
                       >
-                        <span className="font-semibold text-white">{t.actionType}</span>
+                        <span className="font-medium text-slate-100">{t.actionType}</span>
                         <span className="bg-red-500/30 text-red-300 px-1 rounded text-[9px] font-bold">
                           ×{t.count}
                         </span>
-                        <span className="text-slate-400 text-[9px]">({t.percentage}%)</span>
                       </span>
                     ))}
                   </div>
                 </div>
 
-                {/* 2. Possible causes summary */}
+                {/* 2. Possible Causes & Evidence (Progressive Disclosure) */}
                 <div>
-                  <div className="text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                    <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                    <span>Possible Causes & Evidence</span>
+                  <div className="text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-1 flex items-center justify-between">
+                    <span className="flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3 text-amber-400 shrink-0" />
+                      <span>Possible Causes ({totalCauses.length})</span>
+                    </span>
+                    {totalCauses.length > 2 && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAllCauses((prev) => !prev)}
+                        className="text-[9px] text-sky-300 hover:text-white transition-colors cursor-pointer"
+                      >
+                        {showAllCauses ? 'Show top 2' : `Show all (${totalCauses.length})`}
+                      </button>
+                    )}
                   </div>
                   <div className="space-y-1.5">
-                    {details.possibleCauses.map((cause) => {
+                    {visibleCauses.map((cause) => {
                       const categoryColor =
                         cause.category === 'Navigation/Obstacle'
                           ? 'border-amber-500/50 bg-amber-950/20 text-amber-300'
@@ -2080,62 +2203,96 @@ export default function InteractiveFloorPlan({
                           ? 'border-cyan-500/50 bg-cyan-950/20 text-cyan-300'
                           : 'border-slate-600 bg-slate-900/40 text-slate-300';
 
+                      const isEvidenceExpanded = !!expandedEvidenceIds[cause.id];
+
                       return (
                         <div
                           key={cause.id}
-                          className="p-2 rounded-lg bg-[#0c2340]/80 border border-sky-800/80 text-xs min-w-0"
+                          className="p-1.5 rounded-lg bg-[#0c2340]/80 border border-sky-800/80 text-xs min-w-0"
                         >
-                          <div className="flex items-center justify-between gap-1.5 mb-1 min-w-0">
-                            <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border uppercase shrink-0 ${categoryColor}`}>
+                          <div className="flex items-center justify-between gap-1 mb-1 min-w-0">
+                            <span className={`text-[8.5px] font-mono font-bold px-1.5 py-0.5 rounded border uppercase shrink-0 ${categoryColor}`}>
                               {cause.category}
                             </span>
                             <span className="text-[9px] font-mono text-slate-400 truncate">
-                              Explains {cause.explainedCount} of {details.failedCount} ({cause.explainedPercentage}%)
+                              Explains {cause.explainedCount} of {details.failedCount}
                             </span>
                           </div>
-                          <div className="font-semibold text-white text-[11px] leading-tight mb-1 whitespace-normal [overflow-wrap:anywhere] break-words">
+                          <div className="font-semibold text-white text-[10.5px] leading-tight mb-1 whitespace-normal [overflow-wrap:anywhere] break-words">
                             {cause.hypothesis}
                           </div>
-                          <p className="text-[10px] text-slate-300 leading-snug whitespace-normal [overflow-wrap:anywhere] break-words">
-                            <span className="text-sky-400 font-semibold font-mono">Evidence: </span>
-                            {cause.evidence}
-                          </p>
+                          <div className="flex items-center justify-between pt-0.5 text-[9px]">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedEvidenceIds((prev) => ({
+                                  ...prev,
+                                  [cause.id]: !prev[cause.id],
+                                }))
+                              }
+                              className="text-sky-400 hover:text-sky-200 flex items-center gap-0.5 cursor-pointer font-medium"
+                            >
+                              <span>Evidence</span>
+                              {isEvidenceExpanded ? (
+                                <ChevronUp className="w-2.5 h-2.5" />
+                              ) : (
+                                <ChevronDown className="w-2.5 h-2.5" />
+                              )}
+                            </button>
+                          </div>
+                          {isEvidenceExpanded && (
+                            <p className="mt-1 text-[9.5px] text-slate-300 leading-snug whitespace-normal [overflow-wrap:anywhere] break-words bg-sky-950/40 p-1.5 rounded border border-sky-900/60 animate-in fade-in duration-100">
+                              <span className="text-sky-400 font-semibold font-mono">Evidence: </span>
+                              {cause.evidence}
+                            </p>
+                          )}
                         </div>
                       );
                     })}
                   </div>
                 </div>
 
-                {/* 3. List of individual failed actions */}
-                <div>
-                  <div className="text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1 flex items-center justify-between">
-                    <span>Individual Failed Actions</span>
-                    <span className="text-[10px] text-slate-400 font-mono">Chronological</span>
-                  </div>
-                  <div className="max-h-40 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
-                    {details.failedActions.map((act) => (
-                      <div
-                        key={act.action_id}
-                        className="p-1.5 rounded bg-[#091f38] border border-sky-900/80 text-[10px] font-mono flex items-center justify-between gap-1.5 hover:bg-[#0c2847] transition-colors min-w-0"
-                      >
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-bold text-sky-200">{act.action_id}</span>
-                            <span className="text-slate-400">({act.mission_id})</span>
-                            <span className="text-white font-sans font-medium">{formatActionTypeName(act.action_type)}</span>
+                {/* 3. Individual Failed Actions (Collapsible Accordion Section) */}
+                <div className="border-t border-sky-900/60 pt-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setShowIndividualActions((prev) => !prev)}
+                    className="w-full flex items-center justify-between text-[10px] font-bold text-slate-300 uppercase tracking-wider hover:text-white cursor-pointer py-0.5"
+                  >
+                    <span>Individual Failed Actions ({details.failedActions.length})</span>
+                    {showIndividualActions ? (
+                      <ChevronUp className="w-3 h-3 text-sky-400" />
+                    ) : (
+                      <ChevronDown className="w-3 h-3 text-sky-400" />
+                    )}
+                  </button>
+
+                  {showIndividualActions && (
+                    <div className="max-h-36 overflow-y-auto space-y-1 mt-1.5 pr-0.5 custom-scrollbar animate-in fade-in duration-150">
+                      {details.failedActions.map((act) => (
+                        <div
+                          key={act.action_id}
+                          className="p-1.5 rounded bg-[#091f38] border border-sky-900/80 text-[9.5px] font-mono flex items-center justify-between gap-1.5 hover:bg-[#0c2847] transition-colors min-w-0"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-bold text-sky-200">{act.action_id}</span>
+                              <span className="text-slate-400">({act.mission_id})</span>
+                              <span className="text-white font-sans font-medium">{formatActionTypeName(act.action_type)}</span>
+                            </div>
+                            <div className="text-[8.5px] text-slate-400 mt-0.5">
+                              Bat: {act.battery_pct}% • {act.timestamp ? act.timestamp.replace('2026-', '') : ''}
+                            </div>
                           </div>
-                          <div className="text-[9px] text-slate-400 mt-0.5">
-                            Asset: {act.asset_id || 'N/A'} • Bat: {act.battery_pct}% • {act.timestamp ? act.timestamp.replace('2026-', '') : ''}
+                          <div className="text-right shrink-0">
+                            <span className="px-1 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/40 text-[8.5px] font-bold uppercase">
+                              {act.failure_type || 'FAILED'}
+                            </span>
                           </div>
                         </div>
-                        <div className="text-right shrink-0">
-                          <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/40 text-[9px] font-bold uppercase">
-                            {act.failure_type || 'FAILED'}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
