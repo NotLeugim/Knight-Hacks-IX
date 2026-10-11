@@ -17,6 +17,7 @@ import {
   Info,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toStatus, STATUS_CONFIG } from '@/lib/status';
 
 interface MissionDetailProps {
   missionId: string | null;
@@ -175,11 +176,11 @@ export default function MissionDetail({ missionId }: MissionDetailProps) {
   const isClean = summary?.reportedStatus === 'COMPLETED' && (summary?.facts?.failedActions?.length ?? 0) === 0;
   const isParadox = summary?.reportedStatus === 'COMPLETED' && (summary?.facts?.failedActions?.length ?? 0) > 0;
 
-  const statusPillClass = isReportedFailed
-    ? 'text-red-400 bg-red-500/10 border-red-500/20'
-    : isParadox
-    ? 'text-amber-400 bg-amber-500/10 border-amber-500/20'
-    : 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
+  const missionStatus = isReportedFailed ? 'critical' : isParadox ? 'warning' : 'nominal';
+  const statusToken = STATUS_CONFIG[missionStatus];
+
+  const confStatus = (summary?.confidence ?? 0) >= 80 ? 'nominal' : (summary?.confidence ?? 0) >= 60 ? 'warning' : 'critical';
+  const confToken = STATUS_CONFIG[confStatus];
 
   return (
     <div
@@ -206,11 +207,9 @@ export default function MissionDetail({ missionId }: MissionDetailProps) {
               <span
                 className={cn(
                   'text-xs font-mono px-2.5 py-0.5 rounded border font-semibold',
-                  summary.confidence >= 80
-                    ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
-                    : summary.confidence >= 60
-                    ? 'text-amber-400 bg-amber-500/10 border-amber-500/20'
-                    : 'text-red-400 bg-red-500/10 border-red-500/20'
+                  confToken.textClass,
+                  confToken.bgClass,
+                  confToken.borderClass
                 )}
               >
                 Confidence: {summary.confidence}/100
@@ -224,7 +223,9 @@ export default function MissionDetail({ missionId }: MissionDetailProps) {
             <span
               className={cn(
                 'inline-flex items-center gap-1 font-mono text-[11px] px-1.5 py-0.5 rounded border',
-                statusPillClass
+                statusToken.textClass,
+                statusToken.bgClass,
+                statusToken.borderClass
               )}
             >
               {isReportedFailed ? (
@@ -389,43 +390,44 @@ export default function MissionDetail({ missionId }: MissionDetailProps) {
               </div>
 
               {summary.facts.anomalies.length === 0 ? (
-                <div className="text-xs text-orbit-text-muted bg-panel-header border border-panel-border p-3 rounded-lg flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-orbit-text-muted shrink-0" />
-                  <span>No operational anomalies flagged during this mission.</span>
+                <div className="text-xs text-green-400 bg-green-500/10 border border-green-500/20 p-3 rounded-lg flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0" />
+                  <span>No operational anomalies flagged during this mission (Nominal).</span>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {summary.facts.anomalies.map((an) => (
-                    <div
-                      key={an.anomalyId}
-                      className="p-3 rounded-lg text-xs flex flex-col gap-1.5 border"
-                      style={{
-                        background: 'var(--color-bg-secondary)',
-                        borderColor: 'var(--color-border)',
-                      }}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-mono font-bold text-orbit-text">{an.anomalyId}</span>
-                          <span
-                            className={cn(
-                              'text-[10px] font-mono px-1.5 py-0.5 rounded uppercase font-semibold',
-                              an.severity === 'CRITICAL'
-                                ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                                : an.severity === 'HIGH'
-                                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                                : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                            )}
-                          >
-                            {an.severity}
-                          </span>
+                  {summary.facts.anomalies.map((an) => {
+                    const anToken = STATUS_CONFIG[toStatus(an.severity)];
+                    return (
+                      <div
+                        key={an.anomalyId}
+                        className="p-3 rounded-lg text-xs flex flex-col gap-1.5 border"
+                        style={{
+                          background: 'var(--color-bg-secondary)',
+                          borderColor: 'var(--color-border)',
+                        }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono font-bold text-orbit-text">{an.anomalyId}</span>
+                            <span
+                              className={cn(
+                                'text-[10px] font-mono px-1.5 py-0.5 rounded uppercase font-semibold border flex items-center gap-1',
+                                anToken.textClass,
+                                anToken.bgClass,
+                                anToken.borderClass
+                              )}
+                            >
+                              <span className="text-[9px]">{anToken.symbol}</span>
+                              <span>{an.severity}</span>
+                            </span>
+                          </div>
+                          {an.operatorReviewRequired && (
+                            <span className="text-[10px] font-mono text-yellow-400 bg-yellow-500/10 px-1.5 py-0.5 rounded border border-yellow-500/20">
+                              NEEDS REVIEW
+                            </span>
+                          )}
                         </div>
-                        {an.operatorReviewRequired && (
-                          <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
-                            NEEDS REVIEW
-                          </span>
-                        )}
-                      </div>
 
                       <p className="text-orbit-text-secondary text-[11px] leading-relaxed">
                         {an.description}
@@ -436,7 +438,8 @@ export default function MissionDetail({ missionId }: MissionDetailProps) {
                         <span>Location: {an.locationName}</span>
                       </div>
                     </div>
-                  ))}
+                  );
+                })}
                 </div>
               )}
             </div>

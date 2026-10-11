@@ -38,9 +38,9 @@ export default function FacilityMap() {
           [80, 200], [200, 150], [340, 180], [480, 120],
           [600, 160], [720, 100], [820, 140],
         ].map(([cx, cy], i) => (
-          <circle key={i} cx={cx} cy={cy} r="6" fill="#3b82f6" />
+          <circle key={i} cx={cx} cy={cy} r="6" fill="#22c55e" />
         ))}
-        {/* Anomaly marker */}
+        {/* Critical anomaly marker */}
         <circle cx={480} cy={120} r="12" fill="none" stroke="#ef4444" strokeWidth="2" />
         <circle cx={480} cy={120} r="5"  fill="#ef4444" />
       </svg>

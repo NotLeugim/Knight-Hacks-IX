@@ -72,12 +72,10 @@ function rgbToHex(rgb: [number, number, number]): string {
 }
 
 /**
- * Continuous color ramp driven by failure heat:
- * 0.00: Emerald green (#10b981) - Zero failures / safe
- * 0.15: Yellow (#eab308)        - Low failure rate
- * 0.35: Orange (#f97316)        - Moderate failure rate
- * 0.60+: Bright Red (#ef4444)   - High failure rate
- * 1.00: Deep Crimson (#dc2626)  - Severe failure cluster
+ * Continuous color ramp driven by failure heat standardized to 3 status levels:
+ * 0.00: Emerald green (#10b981) - Zero failures / Nominal
+ * 0.35: Yellow (#eab308)        - Moderate failure rate / Warning
+ * 0.70+: Bright Red (#ef4444)   - High failure rate / Critical
  */
 export function getHeatColor(heatScore: number): string {
   if (heatScore <= 0) {
@@ -85,11 +83,10 @@ export function getHeatColor(heatScore: number): string {
   }
 
   const STOPS: Array<{ at: number; rgb: [number, number, number] }> = [
-    { at: 0.0, rgb: [16, 185, 129] },  // #10b981 (Green)
-    { at: 0.15, rgb: [234, 179, 8] },  // #eab308 (Yellow)
-    { at: 0.35, rgb: [249, 115, 22] }, // #f97316 (Orange)
-    { at: 0.65, rgb: [239, 68, 68] },  // #ef4444 (Red)
-    { at: 1.0, rgb: [220, 38, 38] },   // #dc2626 (Crimson)
+    { at: 0.0, rgb: [16, 185, 129] },  // #10b981 (Green - Nominal)
+    { at: 0.35, rgb: [234, 179, 8] },  // #eab308 (Yellow - Warning)
+    { at: 0.70, rgb: [239, 68, 68] },  // #ef4444 (Red - Critical)
+    { at: 1.0, rgb: [239, 68, 68] },   // #ef4444 (Red - Critical)
   ];
 
   for (let i = 0; i < STOPS.length - 1; i++) {
@@ -102,7 +99,7 @@ export function getHeatColor(heatScore: number): string {
     }
   }
 
-  return '#dc2626';
+  return '#ef4444';
 }
 
 /**

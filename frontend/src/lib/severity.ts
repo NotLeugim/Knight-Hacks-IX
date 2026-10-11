@@ -1,15 +1,22 @@
 /**
  * severity.ts — Shared severity configurations, rankings, and visual themes
- * for SPOTCheck (Triage Queue & Facility Map integration).
+ * for SPOTSight, standardized to exactly 3 status levels:
+ *   1. Green  = Nominal (no issues)
+ *   2. Yellow = Warning (lower priority issues: MEDIUM, LOW)
+ *   3. Red    = Critical-High Priority (high priority issues: CRITICAL, HIGH)
  *
- * Single source of truth for:
- *   - Tailwind color tokens (Sidebar cards)
- *   - Hex & RGB colors (Leaflet map markers)
- *   - Severity ranking (CRITICAL > HIGH > MEDIUM > LOW > UNKNOWN)
+ * Backed by centralized status source of truth: '@/lib/status'.
  */
 
+import {
+  Status,
+  toStatus,
+  STATUS_CONFIG,
+  STATUS_RANKS,
+} from './status';
+
 export interface SeverityTheme {
-  textColor: string;        // Tailwind text color (e.g. 'text-red-500')
+  textColor: string;        // Tailwind text color (e.g. 'text-red-400')
   badgeBg: string;          // Tailwind badge background
   badgeBorder: string;      // Tailwind badge border
   cardBorderLeft: string;   // Tailwind card left accent
@@ -21,115 +28,110 @@ export interface SeverityTheme {
 }
 
 /**
- * Severity ranking constants (higher = more severe).
- * CRITICAL (4) > HIGH (3) > MEDIUM (2) > LOW (1) > UNKNOWN (0)
+ * Standardized 3-level ranking constants:
+ * CRITICAL / HIGH = 2
+ * MEDIUM / LOW = 1
+ * NOMINAL / UNKNOWN = 0
  */
 export const SEVERITY_RANKS = {
-  CRITICAL: 4,
-  HIGH: 3,
-  MEDIUM: 2,
+  CRITICAL: 2,
+  HIGH: 2,
+  MEDIUM: 1,
   LOW: 1,
   UNKNOWN: 0,
 } as const;
 
-/**
- * Case-insensitive lookup table for severity themes.
- */
-export const SEVERITY_CONFIG: Record<string, SeverityTheme> = {
-  critical: {
-    textColor: 'text-red-500',
-    badgeBg: 'bg-red-500/15',
-    badgeBorder: 'border-red-500/30',
-    cardBorderLeft: 'border-l-red-500',
-    markerColor: '#ef4444',
-    markerFill: '#dc2626',
-    pulse: true,
-    label: 'CRITICAL',
-    rank: SEVERITY_RANKS.CRITICAL,
-  },
-  high: {
-    textColor: 'text-orange-500',
-    badgeBg: 'bg-orange-500/15',
-    badgeBorder: 'border-orange-500/30',
-    cardBorderLeft: 'border-l-orange-500',
-    markerColor: '#f97316',
-    markerFill: '#ea580c',
-    pulse: false,
-    label: 'HIGH',
-    rank: SEVERITY_RANKS.HIGH,
-  },
-  medium: {
-    textColor: 'text-yellow-500',
-    badgeBg: 'bg-yellow-500/15',
-    badgeBorder: 'border-yellow-500/30',
-    cardBorderLeft: 'border-l-yellow-500',
-    markerColor: '#eab308',
-    markerFill: '#ca8a04',
-    pulse: false,
-    label: 'MEDIUM',
-    rank: SEVERITY_RANKS.MEDIUM,
-  },
-  low: {
-    textColor: 'text-blue-500',
-    badgeBg: 'bg-blue-500/15',
-    badgeBorder: 'border-blue-500/30',
-    cardBorderLeft: 'border-l-blue-500',
-    markerColor: '#3b82f6',
-    markerFill: '#2563eb',
-    pulse: false,
-    label: 'LOW',
-    rank: SEVERITY_RANKS.LOW,
-  },
-  nominal: {
-    textColor: 'text-green-500',
-    badgeBg: 'bg-green-500/15',
-    badgeBorder: 'border-green-500/30',
-    cardBorderLeft: 'border-l-green-500',
-    markerColor: '#22c55e',       // Tailwind green-500
-    markerFill: '#16a34a',        // Tailwind green-600
-    pulse: false,
-    label: 'NOMINAL',
-    rank: 0,
-  },
-};
-
 export const NOMINAL_THEME: SeverityTheme = {
-  textColor: 'text-green-500',
-  badgeBg: 'bg-green-500/15',
-  badgeBorder: 'border-green-500/30',
-  cardBorderLeft: 'border-l-green-500',
-  markerColor: '#22c55e',
-  markerFill: '#16a34a',
+  textColor: STATUS_CONFIG.nominal.textClass,
+  badgeBg: STATUS_CONFIG.nominal.bgClass,
+  badgeBorder: STATUS_CONFIG.nominal.borderClass,
+  cardBorderLeft: STATUS_CONFIG.nominal.cardBorderLeftClass,
+  markerColor: STATUS_CONFIG.nominal.hex,
+  markerFill: STATUS_CONFIG.nominal.fillHex,
   pulse: false,
   label: 'NOMINAL',
   rank: 0,
 };
 
-export const DEFAULT_SEVERITY_THEME: SeverityTheme = {
-  textColor: 'text-slate-400',
-  badgeBg: 'bg-slate-500/15',
-  badgeBorder: 'border-slate-500/30',
-  cardBorderLeft: 'border-l-slate-400',
-  markerColor: '#64748b',
-  markerFill: '#334155',
+export const WARNING_THEME: SeverityTheme = {
+  textColor: STATUS_CONFIG.warning.textClass,
+  badgeBg: STATUS_CONFIG.warning.bgClass,
+  badgeBorder: STATUS_CONFIG.warning.borderClass,
+  cardBorderLeft: STATUS_CONFIG.warning.cardBorderLeftClass,
+  markerColor: STATUS_CONFIG.warning.hex,
+  markerFill: STATUS_CONFIG.warning.fillHex,
   pulse: false,
-  label: 'UNKNOWN',
-  rank: SEVERITY_RANKS.UNKNOWN,
+  label: 'WARNING',
+  rank: 1,
+};
+
+export const CRITICAL_THEME: SeverityTheme = {
+  textColor: STATUS_CONFIG.critical.textClass,
+  badgeBg: STATUS_CONFIG.critical.bgClass,
+  badgeBorder: STATUS_CONFIG.critical.borderClass,
+  cardBorderLeft: STATUS_CONFIG.critical.cardBorderLeftClass,
+  markerColor: STATUS_CONFIG.critical.hex,
+  markerFill: STATUS_CONFIG.critical.fillHex,
+  pulse: true,
+  label: 'CRITICAL',
+  rank: 2,
+};
+
+export const DEFAULT_SEVERITY_THEME: SeverityTheme = NOMINAL_THEME;
+
+/**
+ * Case-insensitive lookup table for severity themes mapped to 3 levels.
+ */
+export const SEVERITY_CONFIG: Record<string, SeverityTheme> = {
+  critical: {
+    ...CRITICAL_THEME,
+    label: 'CRITICAL',
+  },
+  high: {
+    ...CRITICAL_THEME,
+    pulse: false,
+    label: 'HIGH',
+  },
+  medium: {
+    ...WARNING_THEME,
+    label: 'MEDIUM',
+  },
+  low: {
+    ...WARNING_THEME,
+    label: 'LOW',
+  },
+  warning: {
+    ...WARNING_THEME,
+    label: 'WARNING',
+  },
+  nominal: {
+    ...NOMINAL_THEME,
+    label: 'NOMINAL',
+  },
 };
 
 /**
  * Returns the SeverityTheme for a given severity string (case-insensitive).
- * Safe fallback to DEFAULT_SEVERITY_THEME for undefined, null, or unrecognized values.
  */
 export function getSeverityTheme(severity?: string | null): SeverityTheme {
-  if (!severity) return DEFAULT_SEVERITY_THEME;
+  if (!severity) return NOMINAL_THEME;
   const key = severity.toLowerCase().trim();
-  return (
-    SEVERITY_CONFIG[key] ?? {
-      ...DEFAULT_SEVERITY_THEME,
-      label: severity.toUpperCase().trim(),
-    }
-  );
+  if (SEVERITY_CONFIG[key]) {
+    return SEVERITY_CONFIG[key];
+  }
+
+  const status: Status = toStatus(severity);
+  const base =
+    status === 'critical'
+      ? CRITICAL_THEME
+      : status === 'warning'
+      ? WARNING_THEME
+      : NOMINAL_THEME;
+
+  return {
+    ...base,
+    label: severity.toUpperCase().trim(),
+  };
 }
 
 /**
@@ -147,6 +149,10 @@ export function getWaypointSeverityTheme(worstSeverity?: string | null): Severit
  * Returns numeric priority rank for severity comparison (case-insensitive).
  */
 export function getSeverityRank(severity?: string | null): number {
-  return getSeverityTheme(severity).rank;
+  if (!severity) return 0;
+  const key = severity.toUpperCase().trim();
+  if (key in SEVERITY_RANKS) {
+    return SEVERITY_RANKS[key as keyof typeof SEVERITY_RANKS];
+  }
+  return STATUS_RANKS[toStatus(severity)];
 }
-

@@ -44,7 +44,7 @@ function CustomBatteryTooltip({ active, payload }: CustomTooltipProps) {
           <span
             className="font-semibold"
             style={{
-              color: item.minPct < 30 ? 'var(--color-danger)' : 'var(--color-text-muted)',
+              color: item.minPct < 30 ? 'var(--color-danger)' : 'var(--color-success)',
             }}
           >
             {item.failureRatePct}%
@@ -100,24 +100,24 @@ export default function BatteryReliabilityChart({ data }: BatteryReliabilityChar
         </div>
         <div className="flex items-center gap-2 self-start sm:self-auto">
           <span
-            className="text-xs px-2.5 py-1 rounded-md font-medium"
+            className="text-xs px-2.5 py-1 rounded-md font-medium flex items-center gap-1"
             style={{
               background: 'color-mix(in srgb, var(--color-danger) 15%, transparent)',
               color: 'var(--color-danger)',
               border: '1px solid color-mix(in srgb, var(--color-danger) 30%, transparent)',
             }}
           >
-            &lt;30% Danger
+            <span>■</span> &lt;30% Danger
           </span>
           <span
-            className="text-xs px-2.5 py-1 rounded-md font-medium"
+            className="text-xs px-2.5 py-1 rounded-md font-medium flex items-center gap-1"
             style={{
-              background: 'color-mix(in srgb, var(--color-text-muted) 15%, transparent)',
-              color: 'var(--color-text-muted)',
-              border: '1px solid var(--color-border)',
+              background: 'color-mix(in srgb, var(--color-success) 15%, transparent)',
+              color: 'var(--color-success)',
+              border: '1px solid color-mix(in srgb, var(--color-success) 30%, transparent)',
             }}
           >
-            &ge;30% Normal
+            <span>●</span> &ge;30% Nominal
           </span>
         </div>
       </div>
@@ -194,7 +194,7 @@ export default function BatteryReliabilityChart({ data }: BatteryReliabilityChar
               {data.map((entry, index) => (
                 <Cell
                   key={`battery-bar-${index}`}
-                  fill={entry.minPct < 30 ? colors.chartFailed : colors.textMuted}
+                  fill={entry.minPct < 30 ? colors.chartFailed : colors.chartSucceeded}
                 />
               ))}
             </Bar>

@@ -6,7 +6,8 @@
  */
 
 import { TriageAnomaly } from './triageTypes';
-import { getSeverityRank } from './severity';
+import { getSeverityRank, SEVERITY_RANKS } from './severity';
+import { toStatus } from './status';
 
 /**
  * Normalizes any waypoint identifier representation to standard uppercase 'WP##' format.
@@ -126,7 +127,7 @@ export function computeWaypointSummaries(
       summary.worstSeverity = anomaly.severity;
     }
 
-    if (anomaly.severity?.toUpperCase().trim() === 'CRITICAL') {
+    if (toStatus(anomaly.severity) === 'critical') {
       summary.hasCritical = true;
     }
   }
