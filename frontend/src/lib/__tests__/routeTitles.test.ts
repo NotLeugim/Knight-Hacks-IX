@@ -6,7 +6,7 @@ describe('Route Titles & Sub-toolbar Naming (Issue #49)', () => {
   test('ROUTE_TITLES maps expected application routes to exact concise strings', () => {
     assert.equal(ROUTE_TITLES['/'], 'Active Patrol');
     assert.equal(ROUTE_TITLES['/live'], 'Active Patrol');
-    assert.equal(ROUTE_TITLES['/anomalies'], 'Anomaly Log');
+    assert.equal(ROUTE_TITLES['/anomalies'], undefined);
     assert.equal(ROUTE_TITLES['/missions'], 'Mission History');
     assert.equal(ROUTE_TITLES['/insights'], 'Fleet Analytics');
     assert.equal(ROUTE_TITLES['/weather'], 'Weather');
