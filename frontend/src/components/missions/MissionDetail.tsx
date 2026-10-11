@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { fetchMissionSummary } from '@/lib/api';
 import { MissionSummary, MissionFacts } from '@/lib/summaryTypes';
+import { MissionForecast } from './MissionForecast';
 import {
   FileText,
   AlertTriangle,
@@ -327,6 +328,8 @@ export default function MissionDetail({ missionId }: MissionDetailProps) {
                 )}
               </div>
             )}
+
+            <MissionForecast missionId={missionId} />
 
             {/* Failed Actions */}
             <div className="space-y-2">
