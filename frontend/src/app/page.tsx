@@ -7,6 +7,7 @@ import { checkHealth, fetchTriageQueue, TriageAnomaly } from '../lib/api';
 import { triageFixture } from '../lib/triageFixture';
 import { Panel } from '@/components/ui/Panel';
 import { TriageProvider } from '@/context/TriageContext';
+import MissionCompleteToast from '@/components/live/MissionCompleteToast';
 
 const InteractiveFloorPlan = dynamic(
   () => import('../components/InteractiveFloorPlan'),
@@ -48,6 +49,7 @@ export default function Home() {
             selectedIssueId={selectedIssueId}
             onSelectIssueId={setSelectedIssueId}
           />
+          <MissionCompleteToast />
         </Panel>
 
         {/* ── Right Column: Triage Queue Sidebar (Expanded to Fill Empty Space) ── */}

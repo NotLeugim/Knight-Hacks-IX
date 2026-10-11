@@ -179,3 +179,63 @@ export async function fetchAnalytics(): Promise<{
   }
 }
 
+// ── Shift Summaries (issue #15 / AI-2) ──────────────────────────────────────
+
+import type { MissionSummary, ShiftHandoffResponse, ReplayEventResponse } from './summaryTypes';
+export * from './summaryTypes';
+
+/**
+ * Fetches an end-of-mission shift summary for a specific mission.
+ * Returns { data: null, source: 'offline' } if the backend is unreachable.
+ */
+export async function fetchMissionSummary(
+  missionId: string,
+  regenerate = false
+): Promise<{ data: MissionSummary | null; source: 'api' | 'offline' }> {
+  try {
+    const query = regenerate ? '?regenerate=true' : '';
+    const data = await get<MissionSummary>(`/api/missions/${missionId}/summary${query}`);
+    return { data, source: 'api' };
+  } catch (err) {
+    console.warn(`[SPOTSight] Failed to fetch summary for mission ${missionId}:`, err);
+    return { data: null, source: 'offline' };
+  }
+}
+
+/**
+ * Fetches the most recent shift handoff summaries (newest first).
+ * Returns { missions: [], source: 'offline' } if the backend is unreachable.
+ */
+export async function fetchShiftHandoff(
+  limit = 3
+): Promise<{ missions: MissionSummary[]; source: 'api' | 'offline' }> {
+  try {
+    const res = await get<ShiftHandoffResponse>(`/api/shift-handoff?limit=${limit}`);
+    if (Array.isArray(res?.missions)) {
+      return { missions: res.missions, source: 'api' };
+    }
+    return { missions: [], source: 'api' };
+  } catch (err) {
+    console.warn('[SPOTSight] Failed to fetch shift handoff:', err);
+    return { missions: [], source: 'offline' };
+  }
+}
+
+/**
+ * Posts a replay telemetry event to the backend trigger endpoint.
+ */
+export async function postReplayEvent(
+  event: Record<string, unknown>
+): Promise<ReplayEventResponse> {
+  const res = await fetch(`${API_BASE}/api/events/replay`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(event),
+  });
+  if (!res.ok) {
+    throw new Error(`API error ${res.status} on POST /api/events/replay`);
+  }
+  return res.json() as Promise<ReplayEventResponse>;
+}
+
+

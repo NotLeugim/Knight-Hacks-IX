@@ -32,7 +32,52 @@ export interface MissionParadoxData {
   missions: MissionParadoxMission[];
 }
 
+export interface MissionConfidenceItem {
+  missionId: string;
+  score: number;
+  failedActions: number;
+  anomalyCount: number;
+  anomalyDeduction: number;
+}
+
+export interface ConfidenceData {
+  formula?: {
+    start: number;
+    perFailedAction: number;
+    anomaly: Record<string, number>;
+    min: number;
+    max: number;
+  };
+  fleetAverage: number;
+  missions: MissionConfidenceItem[];
+}
+
+export interface ConfigVersionStats {
+  missions: number;
+  missionCompletionPct: number;
+  actions: number;
+  actionSuccessPct: number;
+  minBatteryPct?: number;
+}
+
+export interface EqualBatteryStats {
+  aboveBatteryPct: number;
+  V1: { actions: number; actionSuccessPct: number };
+  V2: { actions: number; actionSuccessPct: number };
+}
+
+export interface ConfigComparisonData {
+  V1: ConfigVersionStats;
+  V2: ConfigVersionStats;
+  equalBattery: EqualBatteryStats;
+  note?: string;
+}
+
 export interface AnalyticsResponse {
   batteryReliability: BatteryReliabilityItem[];
   missionParadox: MissionParadoxData;
+  configComparison?: ConfigComparisonData;
+  confidence?: ConfidenceData;
+  source?: 'database' | 'csv' | 'fixture' | string;
 }
+
