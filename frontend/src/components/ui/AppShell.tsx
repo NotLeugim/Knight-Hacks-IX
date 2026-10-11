@@ -17,14 +17,13 @@ const NAV_TABS: TabItem[] = [
   { id: '/weather', label: 'Weather' },
 ];
 
-const ROUTE_TITLES: Record<string, string> = {
-  '/': 'Unit #1 Live Mission',
-  '/live': 'Unit #1 Live Mission',
-  '/anomalies': 'Fleet Anomalies',
-  '/missions': 'Mission History & Summaries',
-  '/insights': 'Fleet Insights & Analytics',
-  '/weather': 'Plant Weather & Operations Impact',
-  '/design-system': 'Design System Specification',
+export const ROUTE_TITLES: Record<string, string> = {
+  '/': 'Active Patrol',
+  '/live': 'Active Patrol',
+  '/anomalies': 'Anomaly Log',
+  '/missions': 'Mission History',
+  '/insights': 'Fleet Analytics',
+  '/weather': 'Weather',
 };
 
 export interface AppShellProps {
@@ -72,7 +71,7 @@ export function AppShell({ children }: AppShellProps) {
     : '/';
 
   // Contextual page title per route
-  const currentTitle = ROUTE_TITLES[pathname] || 'Unit #1 Live Mission';
+  const currentTitle = ROUTE_TITLES[pathname] || 'Active Patrol';
 
   const handleTabChange = (tabId: string) => {
     router.push(tabId);
