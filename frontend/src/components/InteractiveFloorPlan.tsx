@@ -22,9 +22,9 @@ import {
 import type { TriageAnomaly } from '@/lib/triageTypes';
 import {
   ActionRecord,
-  WaypointActionSummary,
-  resolveWaypointActionStatus,
-  computeAllWaypointsActionSummaries,
+  WaypointHeatMetrics,
+  resolveWaypointHeat,
+  computeAllWaypointsHeat,
 } from '@/lib/actionMode';
 import { actionsFixture } from '@/lib/actionsFixture';
 
@@ -63,7 +63,7 @@ export interface InteractiveFloorPlanProps {
   actions?: ActionRecord[];
   overlayMode?: OverlayMode;
   onOverlayModeChange?: (mode: OverlayMode) => void;
-  onNodeSelect?: (nodeId: string, payload?: ActionRecord | null) => void;
+  onNodeSelect?: (nodeId: string, payload?: any) => void;
 }
 
 // ── Waypoint Data Definitions (Clean Nominal Baseline) ───────────────────────
@@ -339,9 +339,134 @@ function createBlueprintPin(
   wp: FloorWaypoint,
   isSelected: boolean,
   mode: OverlayMode = 'pathfinding',
-  actionSummary?: WaypointActionSummary
+  heat?: WaypointHeatMetrics
 ) {
   if (typeof window === 'undefined') return undefined;
+
+  if (mode === 'action' && heat) {
+    const isFailing = heat.isFailing;
+    const color = heat.color;
+    const radius = heat.glowRadius;
+    const opacity = heat.glowOpacity;
+
+    // Anchor at exact center: iconSize is [40, 40], iconAnchor is [20, 20]
+    const html = `
+      <div class="action-heatmap-pin-wrapper" style="
+        position: relative;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: visible;
+      ">
+        <style>
+          .action-heatmap-pin-wrapper {
+            overflow: visible !important;
+          }
+          @keyframes heatmap-halo-breathe {
+            0% { transform: scale(0.94); opacity: ${Math.max(0.25, opacity * 0.85)}; }
+            100% { transform: scale(1.06); opacity: ${opacity}; }
+          }
+          @keyframes heatmap-core-pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.18); }
+            100% { transform: scale(1); }
+          }
+        </style>
+
+        <!-- Soft Radial Glow / Blurred Gradient (Additive / Screen Blended) -->
+        <div style="
+          position: absolute;
+          left: ${20 - radius}px;
+          top: ${20 - radius}px;
+          width: ${radius * 2}px;
+          height: ${radius * 2}px;
+          border-radius: 9999px;
+          background: radial-gradient(circle, ${heat.glowRgba} 0%, ${color}55 35%, ${color}20 60%, transparent 75%);
+          mix-blend-mode: screen;
+          filter: blur(8px);
+          pointer-events: none;
+          z-index: 1;
+          ${isFailing ? 'animation: heatmap-halo-breathe 2.4s ease-in-out infinite alternate;' : ''}
+        "></div>
+
+        ${
+          isFailing
+            ? `
+        <!-- Outer diffuse glow for adjacent hot node blending -->
+        <div style="
+          position: absolute;
+          left: ${20 - Math.round(radius * 1.35)}px;
+          top: ${20 - Math.round(radius * 1.35)}px;
+          width: ${Math.round(radius * 2.7)}px;
+          height: ${Math.round(radius * 2.7)}px;
+          border-radius: 9999px;
+          background: radial-gradient(circle, ${heat.glowRgba} 0%, transparent 65%);
+          mix-blend-mode: screen;
+          filter: blur(14px);
+          pointer-events: none;
+          opacity: 0.6;
+          z-index: 0;
+        "></div>
+        `
+            : ''
+        }
+
+        <!-- Small Solid Core Marker (Clickable & Identifiable) -->
+        <div style="
+          position: relative;
+          z-index: 10;
+          width: 14px;
+          height: 14px;
+          border-radius: 9999px;
+          background-color: ${color};
+          border: 2px solid ${isFailing ? '#ffffff' : '#a7f3d0'};
+          box-shadow: 0 0 10px ${color}, inset 0 0 3px rgba(0, 0, 0, 0.4);
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          ${isSelected ? 'transform: scale(1.4); box-shadow: 0 0 20px #ffffff;' : ''}
+          ${isFailing && heat.heatScore > 0.4 ? 'animation: heatmap-core-pulse 2s ease-in-out infinite;' : ''}
+        ">
+          <span style="width: 4px; height: 4px; border-radius: 9999px; background-color: #071b33;"></span>
+        </div>
+
+        <!-- Waypoint ID Pill Label -->
+        <div style="
+          position: absolute;
+          top: 26px;
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 12;
+          padding: 1px 4px;
+          border-radius: 4px;
+          background-color: rgba(7, 27, 51, 0.95);
+          border: 1px solid ${color};
+          color: #ffffff;
+          font-family: ui-monospace, monospace;
+          font-size: 9px;
+          font-weight: 700;
+          letter-spacing: 0.04em;
+          white-space: nowrap;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
+          pointer-events: none;
+        ">
+          ${wp.id}${isFailing ? ` · ${heat.failedCount}F` : ''}
+        </div>
+      </div>
+    `;
+
+    return L.divIcon({
+      className: 'heatmap-waypoint-pin',
+      html,
+      iconSize: [40, 40],
+      iconAnchor: [20, 20],
+      popupAnchor: [0, -20],
+    });
+  }
 
   let isCritical = wp.status === 'critical';
   let isWarning = wp.status === 'warning';
@@ -350,23 +475,15 @@ function createBlueprintPin(
   let color = '#38bdf8'; // Electric blue default
   let glow = 'rgba(56, 189, 248, 0.6)';
 
-  if (mode === 'action' && actionSummary) {
-    color = actionSummary.badgeHex;
-    glow = actionSummary.glowRgba;
-    isCritical = actionSummary.color === 'red';
-    isWarning = actionSummary.color === 'yellow';
-    isNominal = actionSummary.color === 'green';
-  } else {
-    if (isCritical) {
-      color = '#ef4444';
-      glow = 'rgba(239, 68, 68, 0.9)';
-    } else if (isWarning) {
-      color = '#f59e0b';
-      glow = 'rgba(245, 158, 11, 0.8)';
-    } else if (isNominal) {
-      color = '#10b981';
-      glow = 'rgba(16, 185, 129, 0.8)';
-    }
+  if (isCritical) {
+    color = '#ef4444';
+    glow = 'rgba(239, 68, 68, 0.9)';
+  } else if (isWarning) {
+    color = '#f59e0b';
+    glow = 'rgba(245, 158, 11, 0.8)';
+  } else if (isNominal) {
+    color = '#10b981';
+    glow = 'rgba(16, 185, 129, 0.8)';
   }
 
   // Exact anchor positioning: iconSize is [32, 42], iconAnchor is [16, 42].
@@ -1150,10 +1267,10 @@ export default function InteractiveFloorPlan({
 
   const currentActions = actions ?? actionsFixture;
 
-  // Compute Action Mode summaries across all waypoints
-  const actionSummaries = useMemo(() => {
+  // Compute Action Mode failure heat across all waypoints
+  const waypointHeatMap = useMemo(() => {
     const ids = FLOOR_WAYPOINTS.map((w) => w.id);
-    return computeAllWaypointsActionSummaries(ids, currentActions);
+    return computeAllWaypointsHeat(ids, currentActions);
   }, [currentActions]);
 
   // Compute dynamic status of all waypoints across both floors based on hoisted anomalies
@@ -1266,11 +1383,26 @@ export default function InteractiveFloorPlan({
       onSelectWaypointId?.(wp.id);
       onSelectWaypoint?.(wp);
 
-      // In Action Mode: clicking a red node triggers callback to parent (Smart Drawer contract)
+      // In Action Mode: clicking any waypoint with failedCount > 0 calls onNodeSelect(nodeId, payload)
       if (activeMode === 'action') {
-        const summary = actionSummaries[wp.id];
-        if (summary?.isRed) {
-          onNodeSelect?.(wp.id, summary.worstAction);
+        const heat = waypointHeatMap[wp.id];
+        if (heat && heat.failedCount > 0) {
+          const payload = {
+            waypointId: wp.id,
+            failedCount: heat.failedCount,
+            totalCount: heat.totalCount,
+            failureRate: heat.failureRate,
+            heatScore: heat.heatScore,
+            color: heat.color,
+            failedActions: heat.failedActions.map((fa) => ({
+              action_id: fa.action_id,
+              action_type: fa.action_type,
+              failure_type: fa.failure_type,
+              timestamp: fa.timestamp,
+              mission_id: fa.mission_id,
+            })),
+          };
+          onNodeSelect?.(wp.id, payload);
         }
       }
 
@@ -1291,7 +1423,7 @@ export default function InteractiveFloorPlan({
         onSelectIssueId?.(null);
       }
     },
-    [activeMode, actionSummaries, onNodeSelect, anomalies, onSelectIssueId, onSelectWaypointId, onSelectWaypoint]
+    [activeMode, waypointHeatMap, onNodeSelect, anomalies, onSelectIssueId, onSelectWaypointId, onSelectWaypoint]
   );
 
   const handleDismiss = useCallback(() => {
@@ -1390,29 +1522,26 @@ export default function InteractiveFloorPlan({
         )}
       </div>
 
-      {/* ── Top-Right Legend: Action Mode vs Pathfinding Blueprint Status ── */}
+      {/* ── Top-Right Legend: Action Mode Heat Map vs Pathfinding Blueprint Status ── */}
       {activeMode === 'action' ? (
         <div
           id="action-mode-legend"
-          className="absolute top-4 right-4 z-[1000] flex items-center gap-3 bg-[#0c2340]/95 backdrop-blur-md px-3.5 py-1.5 rounded-lg border border-sky-500/60 shadow-xl text-xs font-mono"
+          className="absolute top-4 right-4 z-[1000] flex items-center gap-2.5 bg-[#0c2340]/95 backdrop-blur-md px-3.5 py-1.5 rounded-lg border border-sky-500/60 shadow-xl text-xs font-mono"
         >
-          <span className="text-[11px] font-bold text-sky-400 uppercase tracking-wider pr-1 border-r border-sky-800 hidden sm:inline">
-            Action Status
-          </span>
-          <div className="flex items-center gap-1.5" title="Action succeeded with no anomalies">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#10b981]"></span>
-            <span className="text-emerald-300 font-semibold text-[11px]">Green: Succeeded</span>
+          <div className="flex items-center gap-1.5 text-sky-300 font-bold text-[11px] uppercase tracking-wider">
+            <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
+            <span>Failure rate:</span>
           </div>
-          <div className="flex items-center gap-1.5" title="Low or Medium anomaly flagged">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_#f59e0b]"></span>
-            <span className="text-amber-300 font-semibold text-[11px]">Yellow: Med/Low</span>
-          </div>
-          <div className="flex items-center gap-1.5" title="Action failed or High/Critical anomaly detected">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-80"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500 shadow-[0_0_10px_#ef4444]"></span>
-            </span>
-            <span className="text-red-400 font-bold text-[11px]">Red: Failed / High/Crit</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-emerald-400 font-semibold">Low</span>
+            <div
+              className="w-24 sm:w-32 h-2.5 rounded-full shadow-inner border border-sky-700/60"
+              style={{
+                background: 'linear-gradient(to right, #10b981 0%, #eab308 25%, #f97316 60%, #dc2626 100%)',
+              }}
+              title="Continuous heat ramp: Green (Low/0%) → Yellow → Orange → Red (High failure rate)"
+            />
+            <span className="text-[10px] text-red-400 font-bold">High</span>
           </div>
         </div>
       ) : (
@@ -1474,11 +1603,11 @@ export default function InteractiveFloorPlan({
             <Floor2BlueprintOverlay showRoute={activeMode === 'pathfinding' && showRoute} />
           )}
 
-          {/* Waypoint Markers (Rendered with Action Mode status colors when active) */}
+          {/* Waypoint Markers (Rendered with Action Mode failure heat map when active) */}
           {visibleWaypoints.map((wp) => {
             const isSelected = selectedWp?.id === wp.id;
-            const actionSummary = actionSummaries[wp.id];
-            const icon = createBlueprintPin(wp, isSelected, activeMode, actionSummary);
+            const heat = waypointHeatMap[wp.id];
+            const icon = createBlueprintPin(wp, isSelected, activeMode, heat);
             if (!icon) return null;
 
             return (
