@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import {
   Sparkles,
@@ -18,6 +19,7 @@ import { MissionSummary } from '@/lib/summaryTypes';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Pill } from '@/components/ui/Pill';
 import { STATUS_CONFIG, toStatus } from '@/lib/status';
+import { zIndex } from '@/styles/tokens';
 import { cn } from '@/lib/utils';
 
 export interface MissionSummaryModalProps {
@@ -31,9 +33,36 @@ export function MissionSummaryModal({
   onClose,
   missionId,
 }: MissionSummaryModalProps) {
+  const [mounted, setMounted] = useState(false);
   const [summary, setSummary] = useState<MissionSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const triggerElementRef = useRef<HTMLElement | null>(null);
+
+  // SSR-safe mount flag
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Lock background body scroll while modal is open
+  useEffect(() => {
+    if (!isOpen) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [isOpen]);
+
+  // Capture trigger focus and return focus upon close
+  useEffect(() => {
+    if (isOpen) {
+      triggerElementRef.current = document.activeElement as HTMLElement | null;
+    } else if (triggerElementRef.current) {
+      triggerElementRef.current.focus();
+      triggerElementRef.current = null;
+    }
+  }, [isOpen]);
 
   const loadSummary = useCallback(
     async (regenerate = false) => {
@@ -79,7 +108,7 @@ export function MissionSummaryModal({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
   const statusType = summary ? toStatus(summary.reportedStatus) : 'nominal';
   const statusCfg = STATUS_CONFIG[statusType];
@@ -91,12 +120,14 @@ export function MissionSummaryModal({
       ? 'warn'
       : 'critical';
 
-  return (
+  return createPortal(
     <div
+      id="mission-summary-backdrop"
       role="dialog"
       aria-modal="true"
       aria-label="AI Mission Summary"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-150"
+      className="fixed inset-0 z-modal-backdrop flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-150"
+      style={{ zIndex: zIndex.modalBackdrop }}
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           onClose();
@@ -104,8 +135,9 @@ export function MissionSummaryModal({
       }}
     >
       <div
-        className="w-full max-w-xl rounded-xl bg-panel border border-[#1E4373] shadow-2xl flex flex-col overflow-hidden text-orbit-text animate-in zoom-in-95 duration-150"
-        style={{ background: '#131B26' }}
+        id="mission-summary-dialog"
+        className="w-full max-w-xl rounded-xl bg-panel border border-[#1E4373] shadow-2xl flex flex-col overflow-hidden text-orbit-text animate-in zoom-in-95 duration-150 relative z-modal"
+        style={{ background: '#131B26', zIndex: zIndex.modal }}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#1E4373] bg-[#0E1724]">
@@ -328,7 +360,8 @@ export function MissionSummaryModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

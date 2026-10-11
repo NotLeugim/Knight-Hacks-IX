@@ -63,7 +63,7 @@ export function Tooltip({
           id={tooltipId}
           role="tooltip"
           className={cn(
-            'absolute z-50 whitespace-nowrap pointer-events-none',
+            'absolute z-tooltip whitespace-nowrap pointer-events-none',
             'px-2.5 py-1 text-xs font-medium text-white',
             'bg-[#101214] border border-[#2F353B] rounded-[6px] shadow-lg shadow-black/40',
             'transition-opacity duration-150 animate-in fade-in-0',

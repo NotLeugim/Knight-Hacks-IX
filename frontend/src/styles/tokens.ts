@@ -235,11 +235,31 @@ export const shapes = {
   },
 } as const;
 
+/**
+ * Z-Index Stacking Order Scale
+ * Hierarchy: map content < map overlays (toolbar, legend) < navbar < drawers/flyouts < modal backdrop < modal < tooltip
+ */
+export const zIndex = {
+  base: 0,
+  mapContent: 10,
+  mapOverlays: 100,      // Floor plan toolbar, status legend, floor toggle
+  subToolbar: 190,       // Fixed 48px SubToolbar
+  navbar: 200,           // Fixed 64px TopBar navigation header
+  topBar: 200,           // Alias for navbar
+  drawer: 300,           // Waypoint inspection flyout, bottom telemetry drawer
+  popover: 350,          // Dropdown menus, action mode hover tooltip
+  toast: 400,            // Replay toasts (MissionCompleteToast)
+  modalBackdrop: 500,    // Fullscreen dimming backdrop
+  modal: 510,            // AI Mission Summary dialog container
+  tooltip: 600,          // Top-level floating tooltips
+} as const;
+
 export const tokens = {
   colors,
   typography,
   spacing,
   shapes,
+  zIndex,
 } as const;
 
 export type ColorsToken = typeof colors;

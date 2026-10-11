@@ -350,7 +350,7 @@ const MapContent = dynamic(
     }) {
       const map = useMap();
       return (
-        <div className="absolute top-4 right-4 z-[900] flex items-center gap-2">
+        <div className="absolute top-4 right-4 z-map-overlays flex items-center gap-2">
           {/* Floor Selection Buttons */}
           <div className="flex items-center bg-slate-900/90 backdrop-blur-md p-1 rounded-lg border border-slate-800 shadow-xl">
             <button
@@ -781,7 +781,7 @@ const MapContent = dynamic(
           </MapContainer>
 
           {/* Top-Left: Static Orbit Telemetry Badge */}
-          <div className="absolute top-4 left-4 z-[900] pointer-events-none flex items-center gap-2 bg-slate-900/90 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-800 shadow-xl">
+          <div className="absolute top-4 left-4 z-map-overlays pointer-events-none flex items-center gap-2 bg-slate-900/90 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-800 shadow-xl">
             <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
             <span className="text-[11px] font-mono font-semibold tracking-wider text-slate-200 uppercase">
               {floorConfig.name.toUpperCase()} · {floorConfig.description.toUpperCase()}

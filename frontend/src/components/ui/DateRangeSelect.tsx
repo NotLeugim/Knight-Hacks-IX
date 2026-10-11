@@ -110,7 +110,7 @@ export function DateRangeSelect({
           role="listbox"
           tabIndex={-1}
           className={cn(
-            'absolute right-0 z-50 mt-1.5 w-48 origin-top-right rounded-panel',
+            'absolute right-0 z-popover mt-1.5 w-48 origin-top-right rounded-panel',
             'bg-panel shadow-2xl shadow-black/80 py-1.5 text-xs text-text-primary focus:outline-none'
           )}
         >

@@ -134,4 +134,16 @@ describe('Issue #52 - AI Mission Summary Trigger Icon & Flow', () => {
       globalThis.fetch = originalFetch;
     }
   });
+
+  test('zIndex tokens maintain strict hierarchy: map content < map overlays < navbar < drawers < modal backdrop < modal < tooltips', async () => {
+    const { zIndex } = await import('../../styles/tokens');
+    assert.ok(zIndex.mapContent < zIndex.mapOverlays, 'mapContent < mapOverlays');
+    assert.ok(zIndex.mapOverlays < zIndex.navbar, 'mapOverlays < navbar');
+    assert.ok(zIndex.navbar <= zIndex.topBar, 'navbar <= topBar');
+    assert.ok(zIndex.subToolbar < zIndex.topBar, 'subToolbar < topBar');
+    assert.ok(zIndex.navbar < zIndex.drawer, 'navbar < drawer');
+    assert.ok(zIndex.drawer < zIndex.modalBackdrop, 'drawer < modalBackdrop');
+    assert.ok(zIndex.modalBackdrop < zIndex.modal, 'modalBackdrop < modal');
+    assert.ok(zIndex.modal < zIndex.tooltip, 'modal < tooltip');
+  });
 });

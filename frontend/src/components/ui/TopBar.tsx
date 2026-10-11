@@ -75,7 +75,7 @@ export function TopBar({
       className={cn(
         // Fixed 64px height across all routes
         'w-full h-16 min-h-[64px] max-h-[64px] bg-navy border-b border-[#1E4373]',
-        'flex items-center justify-between px-4 sm:px-6 select-none z-40 shrink-0 shadow-xs',
+        'flex items-center justify-between px-4 sm:px-6 select-none z-navbar shrink-0 shadow-xs',
         className
       )}
     >

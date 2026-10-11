@@ -87,7 +87,7 @@ export function SplitRefreshButton({
         <div
           role="listbox"
           className={cn(
-            'absolute right-0 top-full mt-1.5 w-44 z-50 rounded-panel bg-panel shadow-2xl shadow-black/80',
+            'absolute right-0 top-full mt-1.5 w-44 z-popover rounded-panel bg-panel shadow-2xl shadow-black/80',
             'py-1 text-xs text-text-primary focus:outline-none'
           )}
         >
