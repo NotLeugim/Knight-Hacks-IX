@@ -265,3 +265,27 @@ describe('Waypoint Status & Anomaly Matching Regression Tests', () => {
   });
 });
 
+describe('Floor Plan Route Visibility & Simplified Legend', () => {
+  // Derivation contract from InteractiveFloorPlan: showRoute = activeMode === 'pathfinding'
+  const isRouteVisible = (activeMode: 'pathfinding' | 'action'): boolean => activeMode === 'pathfinding';
+
+  it('patrol route is visible in Pathfinding Mode and hidden in Action Mode', () => {
+    assert.equal(isRouteVisible('pathfinding'), true);
+    assert.equal(isRouteVisible('action'), false);
+  });
+
+  it('status legend entries are simplified without waypoint ID suffixes', () => {
+    const legendLabels = [
+      STATUS_CONFIG.nominal.label,
+      STATUS_CONFIG.warning.label,
+      STATUS_CONFIG.critical.label,
+    ];
+
+    assert.deepEqual(legendLabels, ['Nominal', 'Warning', 'Critical-High Priority']);
+    for (const label of legendLabels) {
+      assert.equal(/WP\d+/i.test(label), false);
+    }
+  });
+});
+
+

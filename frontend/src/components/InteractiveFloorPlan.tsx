@@ -13,7 +13,6 @@ import {
 import L from 'leaflet';
 import {
   Layers,
-  Radio,
   Thermometer,
   Activity,
   Zap,
@@ -1308,7 +1307,6 @@ export default function InteractiveFloorPlan({
   onNodeSelect,
 }: InteractiveFloorPlanProps) {
   const [activeFloor, setActiveFloor] = useState<ActiveFloor>(initialFloor);
-  const [showRoute, setShowRoute] = useState<boolean>(true);
   const [selectedWp, setSelectedWp] = useState<FloorWaypoint | null>(null);
 
   // Controlled or uncontrolled Mode state: defaults to 'pathfinding'
@@ -1447,10 +1445,6 @@ export default function InteractiveFloorPlan({
     );
   }, [activeFloor, allDynamicWaypoints]);
 
-  const criticalWaypoints = useMemo(() => {
-    return visibleWaypoints.filter((wp) => wp.status === 'critical');
-  }, [visibleWaypoints]);
-
   // Find selected issue object dynamically from anomalies
   const selectedIssue = useMemo(() => {
     if (!selectedIssueId || !anomalies) return null;
@@ -1567,230 +1561,215 @@ export default function InteractiveFloorPlan({
       className={`relative w-full h-full flex flex-col bg-[#071b33] text-slate-100 overflow-hidden rounded-xl border border-sky-900 shadow-2xl select-none ${className}`}
       style={style}
     >
-      {/* ── Top Bar: Floor Switcher, Mode Toggle & Patrol Route Toggle ── */}
-      <div className="absolute top-4 left-4 z-[1000] flex flex-wrap items-center gap-2">
-        {/* Mode Toggle (Segmented Control: Pathfinding Mode vs Action Mode) */}
-        <div
-          id="mode-toggle-segmented"
-          className="flex items-center bg-[#0c2340]/95 backdrop-blur-md p-1 rounded-lg border border-sky-600/60 shadow-xl"
-        >
-          <button
-            id="toggle-mode-pathfinding"
-            type="button"
-            onClick={() => setMode('pathfinding')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold tracking-wide transition-all ${
-              activeMode === 'pathfinding'
-                ? 'bg-sky-500/35 text-sky-200 border border-sky-400 shadow-[0_0_12px_rgba(56,189,248,0.4)]'
-                : 'text-slate-300 hover:text-white hover:bg-sky-900/50 border border-transparent'
-            }`}
-          >
-            <Navigation className="w-3.5 h-3.5" />
-            <span>Pathfinding Mode</span>
-          </button>
-          <button
-            id="toggle-mode-action"
-            type="button"
-            onClick={() => setMode('action')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold tracking-wide transition-all ${
-              activeMode === 'action'
-                ? 'bg-amber-500/30 text-amber-200 border border-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.4)]'
-                : 'text-slate-300 hover:text-white hover:bg-sky-900/50 border border-transparent'
-            }`}
-          >
-            <AlertTriangle className="w-3.5 h-3.5" />
-            <span>Action Mode</span>
-          </button>
-        </div>
-
-        {/* Floor Selection Tabs */}
-        <div className="flex items-center bg-[#0c2340]/95 backdrop-blur-md p-1 rounded-lg border border-sky-600/60 shadow-xl">
-          {(['Floor 1', 'Floor 2'] as ActiveFloor[]).map((floor) => {
-            const isActive = activeFloor === floor;
-            return (
-              <button
-                key={floor}
-                id={`floor-tab-${floor.toLowerCase().replace(' ', '-')}`}
-                onClick={() => setActiveFloor(floor)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold tracking-wide transition-all ${
-                  isActive
-                    ? 'bg-sky-500/35 text-sky-200 border border-sky-400 shadow-[0_0_12px_rgba(56,189,248,0.4)]'
-                    : 'text-slate-300 hover:text-white hover:bg-sky-900/50'
-                }`}
-              >
-                <Layers className="w-3.5 h-3.5" />
-                {floor}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* SPOT Patrol Route Toggle (Active in Pathfinding Mode) */}
-        {activeMode === 'pathfinding' && (
-          <button
-            id="toggle-patrol-route"
-            onClick={() => setShowRoute((prev) => !prev)}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold backdrop-blur-md border transition-all shadow-xl ${
-              showRoute
-                ? 'bg-sky-500/35 border-sky-400 text-sky-100 shadow-[0_0_14px_rgba(56,189,248,0.45)]'
-                : 'bg-[#0c2340]/90 border-sky-800 text-slate-300 hover:text-white hover:bg-sky-900/40'
-            }`}
-          >
-            <Radio className={`w-3.5 h-3.5 ${showRoute ? 'animate-pulse text-cyan-300' : 'text-slate-400'}`} />
-            <span>SPOT Patrol Route</span>
-            <span
-              className={`w-2 h-2 rounded-full ml-1 ${
-                showRoute ? 'bg-cyan-400 shadow-[0_0_8px_#22d3ee]' : 'bg-slate-500'
-              }`}
-            />
-          </button>
-        )}
-      </div>
-
-      {/* ── Top-Right Legend: Action Mode Heat Map vs Pathfinding Blueprint Status ── */}
-      {activeMode === 'action' ? (
-        <div className="absolute top-4 right-4 z-[1000] flex flex-col items-end gap-2">
-          {/* Action Mode Heat Legend */}
+      {/* ── Top Bar Controls & Status Legend ── */}
+      <div className="absolute top-4 left-4 right-4 z-[1000] pointer-events-none flex flex-wrap items-start justify-between gap-2.5">
+        {/* Left Toolbar: Mode Toggle & Floor Switcher */}
+        <div className="pointer-events-auto flex flex-wrap items-center gap-2">
+          {/* Mode Toggle (Segmented Control: Pathfinding Mode vs Action Mode) */}
           <div
-            id="action-mode-legend"
-            className="flex items-center gap-2.5 bg-[#0c2340]/95 backdrop-blur-md px-3.5 py-1.5 rounded-lg border border-sky-500/60 shadow-xl text-xs font-mono"
+            id="mode-toggle-segmented"
+            className="flex items-center bg-[#0c2340]/95 backdrop-blur-md p-1 rounded-lg border border-sky-600/60 shadow-xl"
           >
-            <div className="flex items-center gap-1.5 text-sky-300 font-bold text-[11px] uppercase tracking-wider">
-              <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
-              <span>Failure rate:</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
-                <span>●</span> Low (0%)
-              </span>
-              <div
-                className="w-24 sm:w-32 h-2.5 rounded-full shadow-inner border border-sky-700/60"
-                style={{
-                  background: 'linear-gradient(to right, #10b981 0%, #eab308 50%, #ef4444 100%)',
-                }}
-                title="3-level heat ramp: Green (Nominal) → Yellow (Warning) → Red (Critical)"
-              />
-              <span className="text-[10px] text-red-400 font-bold flex items-center gap-1">
-                High <span>■</span>
-              </span>
-            </div>
+            <button
+              id="toggle-mode-pathfinding"
+              type="button"
+              onClick={() => setMode('pathfinding')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold tracking-wide transition-all ${
+                activeMode === 'pathfinding'
+                  ? 'bg-sky-500/35 text-sky-200 border border-sky-400 shadow-[0_0_12px_rgba(56,189,248,0.4)]'
+                  : 'text-slate-300 hover:text-white hover:bg-sky-900/50 border border-transparent'
+              }`}
+            >
+              <Navigation className="w-3.5 h-3.5" />
+              <span>Pathfinding Mode</span>
+            </button>
+            <button
+              id="toggle-mode-action"
+              type="button"
+              onClick={() => setMode('action')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold tracking-wide transition-all ${
+                activeMode === 'action'
+                  ? 'bg-amber-500/30 text-amber-200 border border-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.4)]'
+                  : 'text-slate-300 hover:text-white hover:bg-sky-900/50 border border-transparent'
+              }`}
+            >
+              <AlertTriangle className="w-3.5 h-3.5" />
+              <span>Action Mode</span>
+            </button>
           </div>
 
-          {/* ── Top-Right Fleet Failure Summary Card (Completed Mission Paradox) ── */}
-          <div
-            id="fleet-failure-summary-card"
-            className="w-80 sm:w-96 bg-[#0c2340]/95 backdrop-blur-md rounded-xl border border-sky-600/70 shadow-2xl p-3 text-xs font-mono select-none animate-in fade-in slide-in-from-top-1 duration-200"
-          >
-            <div className="flex items-center justify-between border-b border-sky-800/80 pb-1.5 mb-1.5">
-              <div className="flex items-center gap-1.5">
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span className="font-bold text-white text-[11px] uppercase tracking-wide">
-                  Mission Paradox Summary
+          {/* Floor Selection Tabs */}
+          <div className="flex items-center bg-[#0c2340]/95 backdrop-blur-md p-1 rounded-lg border border-sky-600/60 shadow-xl">
+            {(['Floor 1', 'Floor 2'] as ActiveFloor[]).map((floor) => {
+              const isActive = activeFloor === floor;
+              return (
+                <button
+                  key={floor}
+                  id={`floor-tab-${floor.toLowerCase().replace(' ', '-')}`}
+                  onClick={() => setActiveFloor(floor)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold tracking-wide transition-all ${
+                    isActive
+                      ? 'bg-sky-500/35 text-sky-200 border border-sky-400 shadow-[0_0_12px_rgba(56,189,248,0.4)]'
+                      : 'text-slate-300 hover:text-white hover:bg-sky-900/50'
+                  }`}
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  {floor}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Right Section: Action Mode Heat Map vs Pathfinding Blueprint Status Legend */}
+        {activeMode === 'action' ? (
+          <div className="pointer-events-auto flex flex-col items-end gap-2 ml-auto">
+            {/* Action Mode Heat Legend */}
+            <div
+              id="action-mode-legend"
+              className="flex items-center gap-2.5 bg-[#0c2340]/95 backdrop-blur-md px-3.5 py-1.5 rounded-lg border border-sky-500/60 shadow-xl text-xs font-mono"
+            >
+              <div className="flex items-center gap-1.5 text-sky-300 font-bold text-[11px] uppercase tracking-wider">
+                <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
+                <span>Failure rate:</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+                  <span>●</span> Low (0%)
+                </span>
+                <div
+                  className="w-24 sm:w-32 h-2.5 rounded-full shadow-inner border border-sky-700/60"
+                  style={{
+                    background: 'linear-gradient(to right, #10b981 0%, #eab308 50%, #ef4444 100%)',
+                  }}
+                  title="3-level heat ramp: Green (Nominal) → Yellow (Warning) → Red (Critical)"
+                />
+                <span className="text-[10px] text-red-400 font-bold flex items-center gap-1">
+                  High <span>■</span>
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={() => setFleetSummaryExpanded((prev) => !prev)}
-                className="text-[10px] text-sky-300 hover:text-white px-1.5 py-0.5 rounded bg-sky-950 border border-sky-800 transition-colors flex items-center gap-1 cursor-pointer"
-                aria-label="Toggle fleet failure summary"
-              >
-                <span>{fleetSummaryExpanded ? 'Collapse' : 'Expand'}</span>
-                {fleetSummaryExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-              </button>
             </div>
 
-            {/* Main Stats Line */}
-            <div className="flex items-center justify-between text-[11px] mb-1.5">
-              <span className="text-slate-300">
-                <strong className="text-red-400 font-bold">{fleetSummary.totalFailedActions}</strong> failed actions in{' '}
-                <strong className="text-amber-300 font-bold">{fleetSummary.missionsWithFailuresCount}</strong> of{' '}
-                <strong className="text-white">{fleetSummary.totalMissionsCount}</strong> missions
-              </span>
-              <span className="text-[10px] text-red-300 font-bold px-1.5 py-0.5 rounded bg-red-950/60 border border-red-800/60">
-                {(fleetSummary.fleetFailureRate * 100).toFixed(1)}% Fail
-              </span>
-            </div>
-
-            {fleetSummaryExpanded && (
-              <div className="space-y-2 pt-1 border-t border-sky-900/60 text-[10px]">
-                {/* Top Failing Waypoints */}
-                <div>
-                  <div className="text-slate-400 uppercase font-semibold text-[9px] mb-1">
-                    Top Failing Waypoints:
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {fleetSummary.topFailingWaypoints.slice(0, 5).map((wp) => (
-                      <span
-                        key={wp.waypointId}
-                        className="px-1.5 py-0.5 rounded bg-[#081a30] border border-sky-800 text-sky-200"
-                      >
-                        <strong>{wp.waypointId}</strong> ({wp.failedCount}F)
-                      </span>
-                    ))}
-                  </div>
+            {/* ── Top-Right Fleet Failure Summary Card (Completed Mission Paradox) ── */}
+            <div
+              id="fleet-failure-summary-card"
+              className="w-80 sm:w-96 bg-[#0c2340]/95 backdrop-blur-md rounded-xl border border-sky-600/70 shadow-2xl p-3 text-xs font-mono select-none animate-in fade-in slide-in-from-top-1 duration-200"
+            >
+              <div className="flex items-center justify-between border-b border-sky-800/80 pb-1.5 mb-1.5">
+                <div className="flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span className="font-bold text-white text-[11px] uppercase tracking-wide">
+                    Mission Paradox Summary
+                  </span>
                 </div>
-
-                {/* Top Failed Action Types */}
-                <div>
-                  <div className="text-slate-400 uppercase font-semibold text-[9px] mb-1">
-                    Top Failed Action Types:
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {fleetSummary.topFailedActionTypes.slice(0, 4).map((at) => (
-                      <span
-                        key={at.actionType}
-                        className="px-1.5 py-0.5 rounded bg-[#081a30] border border-sky-800 text-slate-200"
-                      >
-                        {at.actionType} <span className="text-red-400 font-bold">×{at.count}</span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Top Cause Categories */}
-                <div>
-                  <div className="text-slate-400 uppercase font-semibold text-[9px] mb-1">
-                    Top Cause Categories:
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {fleetSummary.topCauseCategories.filter((c) => c.count > 0).map((c) => (
-                      <span
-                        key={c.category}
-                        className="px-1.5 py-0.5 rounded bg-[#081a30] border border-sky-800 text-amber-300"
-                      >
-                        {c.category}: <strong>{c.count}</strong>
-                      </span>
-                    ))}
-                  </div>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setFleetSummaryExpanded((prev) => !prev)}
+                  className="text-[10px] text-sky-300 hover:text-white px-1.5 py-0.5 rounded bg-sky-950 border border-sky-800 transition-colors flex items-center gap-1 cursor-pointer"
+                  aria-label="Toggle fleet failure summary"
+                >
+                  <span>{fleetSummaryExpanded ? 'Collapse' : 'Expand'}</span>
+                  {fleetSummaryExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                </button>
               </div>
-            )}
+
+              {/* Main Stats Line */}
+              <div className="flex items-center justify-between text-[11px] mb-1.5">
+                <span className="text-slate-300">
+                  <strong className="text-red-400 font-bold">{fleetSummary.totalFailedActions}</strong> failed actions in{' '}
+                  <strong className="text-amber-300 font-bold">{fleetSummary.missionsWithFailuresCount}</strong> of{' '}
+                  <strong className="text-white">{fleetSummary.totalMissionsCount}</strong> missions
+                </span>
+                <span className="text-[10px] text-red-300 font-bold px-1.5 py-0.5 rounded bg-red-950/60 border border-red-800/60">
+                  {(fleetSummary.fleetFailureRate * 100).toFixed(1)}% Fail
+                </span>
+              </div>
+
+              {fleetSummaryExpanded && (
+                <div className="space-y-2 pt-1 border-t border-sky-900/60 text-[10px]">
+                  {/* Top Failing Waypoints */}
+                  <div>
+                    <div className="text-slate-400 uppercase font-semibold text-[9px] mb-1">
+                      Top Failing Waypoints:
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {fleetSummary.topFailingWaypoints.slice(0, 5).map((wp) => (
+                        <span
+                          key={wp.waypointId}
+                          className="px-1.5 py-0.5 rounded bg-[#081a30] border border-sky-800 text-sky-200"
+                        >
+                          <strong>{wp.waypointId}</strong> ({wp.failedCount}F)
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Top Failed Action Types */}
+                  <div>
+                    <div className="text-slate-400 uppercase font-semibold text-[9px] mb-1">
+                      Top Failed Action Types:
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {fleetSummary.topFailedActionTypes.slice(0, 4).map((at) => (
+                        <span
+                          key={at.actionType}
+                          className="px-1.5 py-0.5 rounded bg-[#081a30] border border-sky-800 text-slate-200"
+                        >
+                          {at.actionType} <span className="text-red-400 font-bold">×{at.count}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Top Cause Categories */}
+                  <div>
+                    <div className="text-slate-400 uppercase font-semibold text-[9px] mb-1">
+                      Top Cause Categories:
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {fleetSummary.topCauseCategories.filter((c) => c.count > 0).map((c) => (
+                        <span
+                          key={c.category}
+                          className="px-1.5 py-0.5 rounded bg-[#081a30] border border-sky-800 text-amber-300"
+                        >
+                          {c.category}: <strong>{c.count}</strong>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      ) : (
-        <div className="absolute top-4 right-4 z-[1000] hidden md:flex items-center gap-3.5 bg-[#0c2340]/95 backdrop-blur-md px-4 py-1.5 rounded-lg border border-sky-700/80 shadow-xl text-xs font-mono">
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#22c55e]"></span>
-            <span className="text-slate-200 font-semibold flex items-center gap-1">
-              <span>●</span> Nominal
-            </span>
+        ) : (
+          <div
+            id="pathfinding-status-legend"
+            className="pointer-events-auto flex items-center gap-3 bg-[#0c2340]/95 backdrop-blur-md px-3 py-1.5 rounded-lg border border-sky-700/80 shadow-xl text-xs font-mono ml-auto"
+          >
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#22c55e]"></span>
+              <span className="text-slate-200 font-semibold flex items-center gap-1">
+                <span>●</span> Nominal
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-yellow-400 text-xs">▲</span>
+              <span className="text-slate-200 font-semibold flex items-center gap-1">
+                Warning
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="relative flex h-2 w-2 items-center justify-center">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-80"></span>
+                <span className="text-[10px] text-red-400">■</span>
+              </span>
+              <span className="text-red-300 font-bold">
+                Critical-High Priority
+              </span>
+            </div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-yellow-400 text-xs">▲</span>
-            <span className="text-slate-200 font-semibold flex items-center gap-1">
-              Warning
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="relative flex h-2.5 w-2.5 items-center justify-center">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-80"></span>
-              <span className="text-[10px] text-red-400">■</span>
-            </span>
-            <span className="text-red-300 font-bold">
-              Critical-High Priority ({criticalWaypoints.length > 0 ? criticalWaypoints.map((w) => w.id).join(', ') : 'None'})
-            </span>
-          </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* ── Leaflet Map Container ── */}
       <div className="relative flex-1 w-full h-full">
@@ -1830,12 +1809,12 @@ export default function InteractiveFloorPlan({
             />
           )}
 
-          {/* Blueprint SVG Overlays (Polylines stripped in Action Mode) */}
+          {/* Blueprint SVG Overlays (Path shown in Pathfinding Mode, hidden in Action Mode) */}
           {activeFloor === 'Floor 1' && (
-            <Floor1BlueprintOverlay showRoute={activeMode === 'pathfinding' && showRoute} />
+            <Floor1BlueprintOverlay showRoute={activeMode === 'pathfinding'} />
           )}
           {activeFloor === 'Floor 2' && (
-            <Floor2BlueprintOverlay showRoute={activeMode === 'pathfinding' && showRoute} />
+            <Floor2BlueprintOverlay showRoute={activeMode === 'pathfinding'} />
           )}
 
           {/* Waypoint Markers (Rendered with Action Mode failure heat map when active) */}
