@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Settings, SearchCheck, Puzzle, User, Sparkles } from 'lucide-react';
+import { Settings, SearchCheck, Puzzle, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { IconButton } from './IconButton';
 
@@ -23,8 +23,6 @@ export function TopBar({
   onUserClick,
   rightSlot,
 }: TopBarProps) {
-  const isDev = process.env.NODE_ENV === 'development';
-
   return (
     <header
       id="spotsight-topbar"
@@ -95,17 +93,6 @@ export function TopBar({
 
       {/* ── Right: Extensions & User Profile ── */}
       <div className="flex items-center gap-2 sm:gap-3">
-        {/* Dev-only link to /design-system; completely hidden in production builds */}
-        {isDev && (
-          <Link
-            href="/design-system"
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-button bg-white/10 text-white/90 border border-white/20 hover:bg-white/20 hover:text-white transition-colors mr-1"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-yellow-300" />
-            <span>Design System</span>
-          </Link>
-        )}
-
         {rightSlot}
 
         <div className="flex items-center gap-2">
