@@ -1,14 +1,10 @@
 'use client';
 
 import React from 'react';
-import { Filter } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { IconButton } from './IconButton';
 
 export interface SubToolbarProps {
   title?: React.ReactNode;
-  showFilter?: boolean;
-  onFilterClick?: () => void;
   leftSlot?: React.ReactNode;
   centerSlot?: React.ReactNode;
   rightSlot?: React.ReactNode;
@@ -18,8 +14,6 @@ export interface SubToolbarProps {
 
 export function SubToolbar({
   title,
-  showFilter = true,
-  onFilterClick,
   leftSlot,
   centerSlot,
   rightSlot,
@@ -43,23 +37,11 @@ export function SubToolbar({
         {leftSlot ? (
           leftSlot
         ) : (
-          <div className="flex items-center gap-1.5 min-w-0">
-            {showFilter && (
-              <IconButton
-                icon={<Filter className="w-4 h-4 text-white" />}
-                label="Filter view"
-                tooltip="Filter Fleet View"
-                variant="navyGhost"
-                size="md"
-                onClick={onFilterClick}
-              />
-            )}
-            {title && (
-              <h1 className="text-[20px] sm:text-[22px] font-medium text-white tracking-tight leading-none truncate">
-                {title}
-              </h1>
-            )}
-          </div>
+          title && (
+            <h1 className="text-[20px] sm:text-[22px] font-medium text-white tracking-tight leading-none truncate">
+              {title}
+            </h1>
+          )
         )}
       </div>
 

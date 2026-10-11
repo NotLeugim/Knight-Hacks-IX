@@ -102,7 +102,6 @@ export function AppShell({ children }: AppShellProps) {
       {/* ── Fixed 48px SubToolbar with Contextual Title & Split Refresh ── */}
       <SubToolbar
         title={currentTitle}
-        showFilter={true}
         centerSlot={
           <SegmentedTabs
             tabs={NAV_TABS}
