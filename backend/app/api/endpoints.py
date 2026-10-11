@@ -29,6 +29,10 @@ async def stream_live_events(
         default=False,
         description="Whether to loop the stream when reaching the end of replay.ndjson (defaults to False)",
     ),
+    health: bool = Query(
+        default=False,
+        description="Also emit 'event: health' messages with the running Mission Health Score (issue #12)",
+    ),
 ):
     """
     Server-Sent Events (SSE) live replay stream of Spot robot telemetry and mission events.
@@ -48,6 +52,7 @@ async def stream_live_events(
             delay_seconds=delay,
             loop=loop,
             request=request,
+            health=health,
         ),
         media_type="text/event-stream",
         headers={
