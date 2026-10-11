@@ -1,5 +1,6 @@
 import os
 import logging
+import threading
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -28,6 +29,24 @@ GUIDE_FILES = [
 
 
 logger = logging.getLogger(__name__)
+
+
+def _warm_predictions_model() -> None:
+    """Build and cache the predictions model so the first forecast request is fast."""
+    try:
+        from app.services import predictions as predictions_service
+
+        predictions_service.run_leave_one_out_backtest()
+        logger.info("Predictions model warmed up.")
+    except Exception as exc:
+        logger.warning("Predictions warm-up skipped: %s", exc)
+
+
+def _should_warm_predictions() -> bool:
+    """Warm up on Render (RENDER is set automatically there) or when PREDICTIONS_WARMUP=1."""
+    if os.environ.get("PREDICTIONS_WARMUP") == "0":
+        return False
+    return bool(os.environ.get("RENDER")) or os.environ.get("PREDICTIONS_WARMUP") == "1"
 
 
 @asynccontextmanager
@@ -65,6 +84,14 @@ async def lifespan(app: FastAPI):
         except Exception as exc:
             logger.error("Error uploading Spot User Guides to Gemini: %s", exc)
             app.state.spot_guides = []
+
+    # 3. Predictions model warm-up in a background thread (does not delay startup)
+    app.state.predictions_warmup = None
+    if _should_warm_predictions():
+        app.state.predictions_warmup = threading.Thread(
+            target=_warm_predictions_model, name="predictions-warmup", daemon=True
+        )
+        app.state.predictions_warmup.start()
 
     yield
     # Nothing to clean up — Gemini files expire automatically after 48h
