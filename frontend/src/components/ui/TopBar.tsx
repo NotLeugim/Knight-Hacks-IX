@@ -4,13 +4,11 @@ import React from 'react';
 import Link from 'next/link';
 import { Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { IconButton } from './IconButton';
 
 export interface TopBarProps {
   className?: string;
   onSettingsClick?: () => void;
   onSearchClick?: () => void;
-  onSummaryClick?: () => void;
   onExtensionsClick?: () => void;
   onUserClick?: () => void;
   onCopilotClick?: () => void;
@@ -19,8 +17,6 @@ export interface TopBarProps {
 
 export function TopBar({
   className,
-  onSearchClick,
-  onSummaryClick,
   onCopilotClick,
   rightSlot,
 }: TopBarProps) {
@@ -113,21 +109,6 @@ export function TopBar({
             </sup>
           </span>
         </Link>
-
-        {/* Left Icon Buttons */}
-        <div className="flex items-center gap-1.5 ml-1">
-          <IconButton
-            id="ai-mission-summary-trigger"
-            icon={<Sparkles className="w-5 h-5 text-white/90" strokeWidth={2.25} />}
-            aria-label="Generate AI mission summary"
-            label="Generate AI mission summary"
-            tooltip="AI Mission Summary"
-            title="AI Mission Summary"
-            variant="navyGhost"
-            size="md"
-            onClick={onSummaryClick || onSearchClick}
-          />
-        </div>
       </div>
 
       {/* ── Right: Operator Copilot Button & Slot ── */}

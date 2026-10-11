@@ -5,33 +5,40 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { TopBar } from '../../components/ui/TopBar';
 import { fetchSummary, fetchLatestSummary } from '../api';
 
-describe('Issue #52 - AI Mission Summary Trigger Icon & Flow', () => {
-  test('TopBar renders AI mission summary button with accessible label and tooltip title', () => {
-    let summaryClicked = false;
+describe('AI Mission Summary Feature Removal & Header Invariants', () => {
+  test('TopBar renders brand logo and Operator Copilot button, and does NOT render removed summary trigger', () => {
     const markup = renderToStaticMarkup(
-      React.createElement(TopBar, {
-        onSummaryClick: () => {
-          summaryClicked = true;
-        },
-      })
+      React.createElement(TopBar)
     );
 
-    // Must have aria-label="Generate AI mission summary"
+    // Operator Copilot button must be present
     assert.ok(
-      markup.includes('aria-label="Generate AI mission summary"'),
-      'TopBar button must have aria-label="Generate AI mission summary"'
+      markup.includes('id="operator-copilot-btn"'),
+      'TopBar must contain id="operator-copilot-btn"'
+    );
+    assert.ok(
+      markup.includes('Operator Copilot'),
+      'TopBar must contain Operator Copilot text'
     );
 
-    // Must have hover tooltip or title="AI Mission Summary"
+    // Brand SPOTCheck must be present
     assert.ok(
-      markup.includes('title="AI Mission Summary"') || markup.includes('AI Mission Summary'),
-      'TopBar button must have tooltip/title="AI Mission Summary"'
+      markup.includes('SPOTCheck') || markup.includes('SPOT'),
+      'TopBar must contain SPOTCheck brand'
     );
 
-    // Must have the trigger ID
+    // Must NOT have removed AI mission summary trigger button or label
     assert.ok(
-      markup.includes('id="ai-mission-summary-trigger"'),
-      'TopBar button must have id="ai-mission-summary-trigger"'
+      !markup.includes('id="ai-mission-summary-trigger"'),
+      'TopBar must not contain removed id="ai-mission-summary-trigger"'
+    );
+    assert.ok(
+      !markup.includes('aria-label="Generate AI mission summary"'),
+      'TopBar must not contain removed summary aria-label'
+    );
+    assert.ok(
+      !markup.includes('title="AI Mission Summary"'),
+      'TopBar must not contain removed summary title/tooltip'
     );
 
     // Must NOT have old Search and Verify or Inspection & Audit Log
@@ -45,91 +52,49 @@ describe('Issue #52 - AI Mission Summary Trigger Icon & Flow', () => {
     );
   });
 
-  test('clicking/triggering onSummaryClick calls the callback', () => {
-    let clicked = false;
-    const props = {
-      onSummaryClick: () => {
-        clicked = true;
-      },
-    };
+  test('TopBar renders safely with optional props', () => {
+    let copilotClicked = false;
+    const markup = renderToStaticMarkup(
+      React.createElement(TopBar, {
+        className: 'custom-topbar-class',
+        onCopilotClick: () => {
+          copilotClicked = true;
+        },
+      })
+    );
 
-    // Simulate onClick invocation
-    if (props.onSummaryClick) {
-      props.onSummaryClick();
-    }
-
-    assert.equal(clicked, true, 'onSummaryClick must be called');
+    assert.ok(
+      markup.includes('custom-topbar-class'),
+      'TopBar must render custom className'
+    );
   });
 
-  test('fetchSummary calls /api/summary with correct endpoint and query params', async () => {
+  test('fetchSummary is safely deactivated and returns offline null without network requests', async () => {
     const originalFetch = globalThis.fetch;
-    let requestedUrl = '';
+    let fetchCalled = false;
 
-    globalThis.fetch = async (input: RequestInfo | URL) => {
-      requestedUrl = String(input);
-      return new Response(
-        JSON.stringify({
-          missionId: 'M027',
-          reportedStatus: 'COMPLETED',
-          status: 'issues',
-          bullets: ['- Bullet 1', '- Bullet 2', '- Bullet 3'],
-          summaryMarkdown: '- Bullet 1\n- Bullet 2\n- Bullet 3',
-          generatedBy: 'template',
-          confidence: 75,
-          facts: {
-            missionId: 'M027',
-            reportedStatus: 'COMPLETED',
-            config: 'V2',
-            startTime: '2026-10-10T10:00:00Z',
-            endTime: '2026-10-10T10:30:00Z',
-            totalActions: 10,
-            failedActions: [],
-            anomalies: [],
-            confidence: null,
-          },
-        }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
-      );
+    globalThis.fetch = async () => {
+      fetchCalled = true;
+      throw new Error('Network should not be called when deactivated');
     };
 
     try {
       const res = await fetchSummary();
-      assert.ok(
-        requestedUrl.endsWith('/api/summary'),
-        `Requested URL should end with /api/summary, got: ${requestedUrl}`
-      );
-      assert.equal(res.source, 'api');
-      assert.equal(res.data?.missionId, 'M027');
-      assert.equal(res.data?.confidence, 75);
-
-      // Test with missionId param
-      await fetchSummary('M005', true);
-      assert.ok(
-        requestedUrl.includes('/api/summary?mission_id=M005&regenerate=true'),
-        `Requested URL should include query params, got: ${requestedUrl}`
-      );
+      assert.equal(fetchCalled, false, 'fetchSummary must not dispatch network requests');
+      assert.equal(res.source, 'offline');
+      assert.equal(res.data, null);
 
       // fetchLatestSummary alias works identically
       const aliasRes = await fetchLatestSummary();
-      assert.equal(aliasRes.source, 'api');
-      assert.equal(aliasRes.data?.missionId, 'M027');
-    } finally {
-      globalThis.fetch = originalFetch;
-    }
-  });
+      assert.equal(fetchCalled, false, 'fetchLatestSummary must not dispatch network requests');
+      assert.equal(aliasRes.source, 'offline');
+      assert.equal(aliasRes.data, null);
 
-  test('fetchSummary handles network errors gracefully with offline fallback and error details', async () => {
-    const originalFetch = globalThis.fetch;
-    globalThis.fetch = async () => {
-      throw new Error('Connection refused');
-    };
-
-    try {
-      const res = await fetchSummary();
-      assert.equal(res.source, 'offline');
-      assert.equal(res.data, null);
-      assert.ok(res.error, 'Should capture error message');
-      assert.ok(res.error.includes('Connection refused'));
+      // Even with missionId and regenerate flags, deactivated call returns offline null
+      const paramRes = await fetchSummary('M005', true);
+      assert.equal(fetchCalled, false, 'fetchSummary with params must not dispatch network requests');
+      assert.equal(paramRes.source, 'offline');
+      assert.equal(paramRes.data, null);
     } finally {
       globalThis.fetch = originalFetch;
     }

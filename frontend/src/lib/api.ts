@@ -205,25 +205,14 @@ import type { MissionSummary, ShiftHandoffResponse, ReplayEventResponse } from '
 export * from './summaryTypes';
 
 /**
- * Fetches an AI mission summary from /api/summary.
- * If missionId is specified, appends ?mission_id={missionId}.
- * Returns { data: MissionSummary | null; source: 'api' | 'offline'; error?: string }.
+ * Deactivated: AI mission summary endpoint (/api/summary).
+ * Returns offline empty state without dispatching network calls.
  */
 export async function fetchSummary(
-  missionId?: string,
-  regenerate = false
+  _missionId?: string,
+  _regenerate = false
 ): Promise<{ data: MissionSummary | null; source: 'api' | 'offline'; error?: string }> {
-  try {
-    const params = new URLSearchParams();
-    if (missionId) params.append('mission_id', missionId);
-    if (regenerate) params.append('regenerate', 'true');
-    const query = params.toString() ? `?${params.toString()}` : '';
-    const data = await get<MissionSummary>(`/api/summary${query}`);
-    return { data, source: 'api' };
-  } catch (err: any) {
-    console.warn('[SPOTCheck] Failed to fetch summary from /api/summary:', err);
-    return { data: null, source: 'offline', error: err?.message || 'Failed to fetch summary' };
-  }
+  return { data: null, source: 'offline' };
 }
 
 export const fetchLatestSummary = fetchSummary;
