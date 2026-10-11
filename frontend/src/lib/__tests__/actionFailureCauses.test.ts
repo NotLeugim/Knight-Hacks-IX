@@ -297,65 +297,105 @@ test('Action Failure Causes & Grouping Helpers', async (t) => {
     assert.ok(resultBottom.y >= margin);
   });
 
-  await t.test('computes compact pinned panel layout anchored next to node without covering it', () => {
+  await t.test('computes docked pinned panel layout in bottom-left corner with bottom-right mirroring for covered nodes', () => {
     const containerWidth = 1000;
     const containerHeight = 700;
 
-    // WP05 (center node at X=600, Y=400)
+    // WP05 (center node) -> Docks at bottom-left
     const resultWP05 = computePinnedPanelLayout({
       containerWidth,
       containerHeight,
+      waypointId: 'WP05',
       nodeX: 600,
       nodeY: 400,
       panelWidth: 320,
     });
 
     assert.equal(resultWP05.isBottomSheet, false);
-    assert.equal(resultWP05.side, 'right', 'Should anchor to the right side where space exists');
-    assert.ok(resultWP05.x >= 600 + 20, 'Panel left edge must be safely to the right of nodeX=600');
-    assert.ok(resultWP05.x + resultWP05.width <= containerWidth - 12);
-    assert.ok(resultWP05.maxHeight <= Math.round(containerHeight * 0.60) + 1, 'Max height capped at ~60%');
+    assert.equal(resultWP05.dock, 'bottom-left');
+    assert.equal(resultWP05.side, 'left');
+    assert.equal(resultWP05.x, 12, 'Must dock at left margin = 12px');
+    assert.equal(resultWP05.bottom, 12, 'Must dock at bottom margin = 12px');
+    assert.ok(resultWP05.maxHeight <= Math.round(containerHeight * 0.55), 'Max height capped at ~50-55%');
 
-    // WP06 (top-right node near summary card at X=880, Y=180)
-    const resultWP06 = computePinnedPanelLayout({
-      containerWidth,
-      containerHeight,
-      nodeX: 880,
-      nodeY: 180,
-      panelWidth: 320,
-      keepOutZones: [{ left: 600, top: 16, width: 384, height: 260 }],
-    });
-
-    assert.equal(resultWP06.side, 'left', 'Must flip to left side when right edge has no room');
-    assert.ok(resultWP06.x + resultWP06.width <= 880 - 20, 'Panel right edge must be safely to the left of nodeX=880');
-    assert.ok(resultWP06.x >= 12, 'Must stay inside left container boundary');
-
-    // WP04 (top-left node at X=250, Y=180 near top toolbar)
+    // WP04 (top node) -> Docks at bottom-left
     const resultWP04 = computePinnedPanelLayout({
       containerWidth,
       containerHeight,
+      waypointId: 'WP04',
       nodeX: 250,
       nodeY: 180,
       panelWidth: 320,
-      keepOutZones: [{ left: 16, top: 16, width: 440, height: 60 }],
     });
 
-    assert.equal(resultWP04.side, 'right', 'Should anchor to right of WP04 away from left toolbar');
-    assert.ok(resultWP04.x >= 250 + 20, 'Must not cover WP04 marker');
-    assert.ok(resultWP04.y >= 60 || resultWP04.x >= 456, 'Must not overlap top-left keep-out zone');
+    assert.equal(resultWP04.dock, 'bottom-left');
+    assert.equal(resultWP04.x, 12);
+    assert.equal(resultWP04.bottom, 12);
+
+    // WP09 (bottom-right node) -> Docks at bottom-left
+    const resultWP09 = computePinnedPanelLayout({
+      containerWidth,
+      containerHeight,
+      waypointId: 'WP09',
+      nodeX: 725,
+      nodeY: 600,
+      panelWidth: 320,
+    });
+
+    assert.equal(resultWP09.dock, 'bottom-left');
+    assert.equal(resultWP09.x, 12);
+
+    // WP10 (far-right node) -> Docks at bottom-left
+    const resultWP10 = computePinnedPanelLayout({
+      containerWidth,
+      containerHeight,
+      waypointId: 'WP10',
+      nodeX: 880,
+      nodeY: 600,
+      panelWidth: 320,
+    });
+
+    assert.equal(resultWP10.dock, 'bottom-left');
+    assert.equal(resultWP10.x, 12);
+
+    // WP01 (bottom-left Loading Dock) -> Mirrors to bottom-right to avoid covering node
+    const resultWP01 = computePinnedPanelLayout({
+      containerWidth,
+      containerHeight,
+      waypointId: 'WP01',
+      nodeX: 130,
+      nodeY: 600,
+      panelWidth: 320,
+    });
+
+    assert.equal(resultWP01.dock, 'bottom-right', 'WP01 must mirror to bottom-right');
+    assert.equal(resultWP01.side, 'right');
+    assert.equal(resultWP01.x, containerWidth - 320 - 12);
+    assert.equal(resultWP01.bottom, 12);
+
+    // Node sitting within bottom-left dock region -> Mirrors to bottom-right
+    const resultCoveredNode = computePinnedPanelLayout({
+      containerWidth,
+      containerHeight,
+      waypointId: 'CUSTOM',
+      nodeX: 100,
+      nodeY: 550,
+      panelWidth: 320,
+    });
+
+    assert.equal(resultCoveredNode.dock, 'bottom-right', 'Any node in bottom-left dock area mirrors to bottom-right');
 
     // Narrow layout (< 640px): Fallback to bottom sheet capped at 40%
     const resultNarrow = computePinnedPanelLayout({
       containerWidth: 500,
       containerHeight: 700,
-      nodeX: 250,
-      nodeY: 300,
+      waypointId: 'WP05',
       panelWidth: 320,
     });
 
     assert.equal(resultNarrow.isBottomSheet, true, 'Narrow width must trigger bottom-sheet fallback');
-    assert.equal(resultNarrow.side, 'bottom-sheet');
+    assert.equal(resultNarrow.dock, 'bottom-sheet');
     assert.ok(resultNarrow.maxHeight <= Math.round(700 * 0.40) + 1, 'Max height capped at 40%');
-    assert.ok(resultNarrow.y >= 700 - resultNarrow.maxHeight - 20, 'Docked at bottom');
+    assert.equal(resultNarrow.bottom, 12, 'Docked at bottom');
   });
 });

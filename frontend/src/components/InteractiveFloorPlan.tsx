@@ -22,7 +22,6 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
-  GripHorizontal,
 } from 'lucide-react';
 import type { TriageAnomaly } from '@/lib/triageTypes';
 import {
@@ -677,16 +676,12 @@ function MapInteractionController({
 
 function ActionMapPositionController({
   hoveredWpId,
-  selectedWpId,
   waypoints,
   onHoverPosChange,
-  onSelectedPosChange,
 }: {
   hoveredWpId: string | null;
-  selectedWpId: string | null;
   waypoints: FloorWaypoint[];
   onHoverPosChange: (pos: { x: number; y: number } | null) => void;
-  onSelectedPosChange: (pos: { x: number; y: number } | null) => void;
 }) {
   const map = useMap();
 
@@ -702,19 +697,7 @@ function ActionMapPositionController({
     } else {
       onHoverPosChange(null);
     }
-
-    if (selectedWpId) {
-      const sWp = waypoints.find((w) => w.id === selectedWpId);
-      if (sWp) {
-        const pt = map.latLngToContainerPoint(sWp.coords);
-        onSelectedPosChange({ x: pt.x, y: pt.y });
-      } else {
-        onSelectedPosChange(null);
-      }
-    } else {
-      onSelectedPosChange(null);
-    }
-  }, [hoveredWpId, selectedWpId, waypoints, map, onHoverPosChange, onSelectedPosChange]);
+  }, [hoveredWpId, waypoints, map, onHoverPosChange]);
 
   useEffect(() => {
     updatePositions();
@@ -1343,23 +1326,10 @@ export default function InteractiveFloorPlan({
   const [hoveredWpId, setHoveredWpId] = useState<string | null>(null);
   const [hoveredPos, setHoveredPos] = useState<{ x: number; y: number } | null>(null);
 
-  // Selected waypoint position in container coords (for anchoring the pinned panel)
-  const [selectedPos, setSelectedPos] = useState<{ x: number; y: number } | null>(null);
-
   // Progressive disclosure states for pinned failure detail panel
   const [expandedEvidenceIds, setExpandedEvidenceIds] = useState<Record<string, boolean>>({});
   const [showAllCauses, setShowAllCauses] = useState<boolean>(false);
   const [showIndividualActions, setShowIndividualActions] = useState<boolean>(false);
-
-  // Optional manual drag offset for pinned panel
-  const [panelDragOffset, setPanelDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const isDraggingRef = useRef<boolean>(false);
-  const dragStartRef = useRef<{ mouseX: number; mouseY: number; initialOffsetX: number; initialOffsetY: number }>({
-    mouseX: 0,
-    mouseY: 0,
-    initialOffsetX: 0,
-    initialOffsetY: 0,
-  });
 
   // Clear hover state on mode change or floor switch
   useEffect(() => {
@@ -1367,12 +1337,11 @@ export default function InteractiveFloorPlan({
     setHoveredPos(null);
   }, [activeMode, activeFloor]);
 
-  // Reset progressive disclosure and drag offset on waypoint selection change
+  // Reset progressive disclosure on waypoint selection change
   useEffect(() => {
     setExpandedEvidenceIds({});
     setShowAllCauses(false);
     setShowIndividualActions(false);
-    setPanelDragOffset({ x: 0, y: 0 });
   }, [selectedWp?.id]);
 
   const getKeepOutZones = useCallback((): BoundingBox[] => {
@@ -1600,34 +1569,7 @@ export default function InteractiveFloorPlan({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleDismiss]);
 
-  const handlePointerDownHeader = (e: React.PointerEvent) => {
-    if ((e.target as HTMLElement).closest('button')) return;
-    isDraggingRef.current = true;
-    dragStartRef.current = {
-      mouseX: e.clientX,
-      mouseY: e.clientY,
-      initialOffsetX: panelDragOffset.x,
-      initialOffsetY: panelDragOffset.y,
-    };
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-  };
 
-  const handlePointerMoveHeader = (e: React.PointerEvent) => {
-    if (!isDraggingRef.current) return;
-    const dx = e.clientX - dragStartRef.current.mouseX;
-    const dy = e.clientY - dragStartRef.current.mouseY;
-    setPanelDragOffset({
-      x: dragStartRef.current.initialOffsetX + dx,
-      y: dragStartRef.current.initialOffsetY + dy,
-    });
-  };
-
-  const handlePointerUpHeader = (e: React.PointerEvent) => {
-    isDraggingRef.current = false;
-    try {
-      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-    } catch (_) {}
-  };
 
   return (
     <div
@@ -1881,14 +1823,12 @@ export default function InteractiveFloorPlan({
             onDismiss={handleDismiss}
           />
 
-          {/* Action Mode Map Position Controller: tracks container coordinates for hovered & selected markers */}
+          {/* Action Mode Map Position Controller: tracks container coordinates for hovered markers */}
           {activeMode === 'action' && (
             <ActionMapPositionController
               hoveredWpId={hoveredWpId}
-              selectedWpId={selectedWp?.id || null}
               waypoints={visibleWaypoints}
               onHoverPosChange={setHoveredPos}
-              onSelectedPosChange={setSelectedPos}
             />
           )}
 
@@ -2066,53 +2006,53 @@ export default function InteractiveFloorPlan({
         const panelLayout = computePinnedPanelLayout({
           containerWidth,
           containerHeight,
-          nodeX: selectedPos?.x,
-          nodeY: selectedPos?.y,
+          waypointId: selectedWp.id,
           panelWidth: 320,
-          keepOutZones,
-          pinClearance: 28,
           margin: 12,
         });
-
-        const finalPanelX = panelLayout.isBottomSheet ? panelLayout.x : panelLayout.x + panelDragOffset.x;
-        const finalPanelY = panelLayout.isBottomSheet ? panelLayout.y : panelLayout.y + panelDragOffset.y;
 
         const totalCauses = details?.possibleCauses || [];
         const visibleCauses = showAllCauses ? totalCauses : totalCauses.slice(0, 2);
 
+        const positionStyles: React.CSSProperties = panelLayout.isBottomSheet
+          ? {
+              left: '12px',
+              right: '12px',
+              bottom: '12px',
+              maxHeight: `${panelLayout.maxHeight}px`,
+            }
+          : panelLayout.dock === 'bottom-right'
+          ? {
+              right: '12px',
+              bottom: '12px',
+              width: `${panelLayout.width}px`,
+              maxHeight: `${panelLayout.maxHeight}px`,
+            }
+          : {
+              left: '12px',
+              bottom: '12px',
+              width: `${panelLayout.width}px`,
+              maxHeight: `${panelLayout.maxHeight}px`,
+            };
+
         return (
           <div
             id="action-mode-failure-detail-panel"
-            className="absolute z-[1100] flex flex-col bg-[#071b33]/96 backdrop-blur-md border border-sky-600/80 p-3 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 font-sans select-none ring-1 ring-sky-500/20"
-            style={{
-              left: `${finalPanelX}px`,
-              top: `${finalPanelY}px`,
-              width: `${panelLayout.width}px`,
-              maxHeight: `${panelLayout.maxHeight}px`,
-            }}
+            className="absolute z-[1100] flex flex-col bg-[#071b33]/96 backdrop-blur-md border border-sky-600/80 p-3 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans select-none ring-1 ring-sky-500/20"
+            style={positionStyles}
           >
-            {/* Header (Draggable by header in desktop mode) */}
-            <div
-              onPointerDown={panelLayout.isBottomSheet ? undefined : handlePointerDownHeader}
-              onPointerMove={panelLayout.isBottomSheet ? undefined : handlePointerMoveHeader}
-              onPointerUp={panelLayout.isBottomSheet ? undefined : handlePointerUpHeader}
-              className={`flex items-center justify-between border-b border-sky-800/80 pb-2 min-w-0 shrink-0 ${
-                panelLayout.isBottomSheet ? '' : 'cursor-grab active:cursor-grabbing'
-              }`}
-            >
-              <div className="flex items-center gap-1.5 min-w-0">
-                {!panelLayout.isBottomSheet && (
-                  <GripHorizontal className="w-3.5 h-3.5 text-slate-500 hover:text-slate-300 shrink-0" />
-                )}
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-sky-800/80 pb-2 min-w-0 shrink-0">
+              <div className="flex items-center gap-1.5 min-w-0 flex-1 mr-1">
                 <span
                   className="px-2 py-0.5 rounded bg-[#0c2340] border font-mono font-bold text-xs shrink-0"
                   style={{ borderColor: heat?.color || '#38bdf8', color: heat?.color || '#38bdf8' }}
                 >
                   {selectedWp.id}
                 </span>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <h4 className="text-xs font-bold text-white tracking-wide truncate max-w-[130px]">
+                    <h4 className="text-xs font-bold text-white tracking-wide leading-tight line-clamp-2 min-w-0 break-words">
                       {selectedWp.name}
                     </h4>
                     <span

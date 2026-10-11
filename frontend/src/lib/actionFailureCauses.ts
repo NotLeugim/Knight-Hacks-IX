@@ -528,40 +528,42 @@ export function computeTooltipLayout(input: TooltipLayoutInput): TooltipLayoutRe
 export interface PinnedPanelLayoutInput {
   containerWidth: number;
   containerHeight: number;
+  waypointId?: string | null;
   nodeX?: number | null;
   nodeY?: number | null;
   panelWidth?: number;
-  keepOutZones?: BoundingBox[];
-  pinClearance?: number;
   margin?: number;
 }
 
 export interface PinnedPanelLayoutResult {
   x: number;
   y: number;
+  bottom: number;
+  left?: number;
+  right?: number;
   width: number;
   maxHeight: number;
+  dock: 'bottom-left' | 'bottom-right' | 'bottom-sheet';
   side: 'left' | 'right' | 'bottom-sheet';
   isBottomSheet: boolean;
 }
 
 /**
- * Computes anchored coordinates and bounded dimensions for the Action Mode pinned failure panel.
- * - Anchors next to the selected node on whichever side has the most clearance.
- * - Never covers the node itself.
- * - Caps max height at 60% of container height with internal scrolling.
- * - Evades keep-out zones (mode toggle, floor switcher, legend, Mission Paradox card).
- * - Fallback for narrow containers (<640px): Bottom sheet capped at 40% height.
+ * Computes docked coordinates and bounded dimensions for the Action Mode pinned failure panel.
+ * - Fixed bottom-left dock by default inside map container (left: 12px, bottom: 12px).
+ * - Compact dimensions: width 320px, maxHeight capped at 50-55% of container height.
+ * - If the bottom-left dock would cover the selected node (e.g. WP01 / Loading Dock or bottom-left area),
+ *   mirrors to bottom-right (right: 12px, bottom: 12px) and stays fixed there.
+ * - Narrow container fallback (< 640px wide): Full-width bottom sheet capped at 40% height.
  */
 export function computePinnedPanelLayout(input: PinnedPanelLayoutInput): PinnedPanelLayoutResult {
   const {
     containerWidth,
     containerHeight,
+    waypointId,
     nodeX,
     nodeY,
     panelWidth = 320,
-    keepOutZones = [],
-    pinClearance = 28,
     margin = 12,
   } = input;
 
@@ -574,100 +576,61 @@ export function computePinnedPanelLayout(input: PinnedPanelLayoutInput): PinnedP
     return {
       x,
       y,
+      bottom: margin,
+      left: margin,
+      right: margin,
       width,
       maxHeight,
+      dock: 'bottom-sheet',
       side: 'bottom-sheet',
       isBottomSheet: true,
     };
   }
 
-  // Normal / Desktop container: Anchored side panel capped at 60% container height
+  // Normal / Desktop container: Docked at bottom, capped at 50-55% (52%) container height
   const width = Math.min(panelWidth, containerWidth - margin * 2);
-  const maxHeight = Math.round(containerHeight * 0.60);
+  const maxHeight = Math.round(containerHeight * 0.52);
 
-  // If node coordinates are missing or zero, fallback to left side
-  if (nodeX === undefined || nodeX === null || nodeY === undefined || nodeY === null) {
+  // Check if the selected node sits in the bottom-left corner and would be covered by bottom-left dock
+  // WP01 is explicitly at the loading dock / staging area at the bottom-left corner.
+  // In addition, if nodeX / nodeY fall within the bottom-left dock boundary:
+  const isBottomLeftNode =
+    waypointId === 'WP01' ||
+    (nodeX != null &&
+      nodeY != null &&
+      nodeX >= 0 &&
+      nodeX <= margin + width + 24 &&
+      nodeY >= containerHeight - maxHeight - margin - 24);
+
+  if (isBottomLeftNode) {
+    // Mirror to bottom-right so the selected node is not covered
+    const x = containerWidth - width - margin;
+    const y = Math.max(margin, containerHeight - maxHeight - margin);
     return {
-      x: margin,
-      y: Math.max(margin, containerHeight - maxHeight - margin),
+      x,
+      y,
+      bottom: margin,
+      right: margin,
       width,
       maxHeight,
-      side: 'left',
+      dock: 'bottom-right',
+      side: 'right',
       isBottomSheet: false,
     };
   }
 
-  // Check horizontal clearance on both sides of the node
-  const spaceRight = containerWidth - (nodeX + pinClearance) - margin;
-  const spaceLeft = (nodeX - pinClearance) - margin;
-
-  let chosenSide: 'left' | 'right' = 'right';
-  let candX: number;
-
-  if (spaceRight >= width) {
-    chosenSide = 'right';
-    candX = nodeX + pinClearance;
-  } else if (spaceLeft >= width) {
-    chosenSide = 'left';
-    candX = nodeX - pinClearance - width;
-  } else {
-    // Pick the side with more space
-    if (spaceRight >= spaceLeft) {
-      chosenSide = 'right';
-      candX = Math.max(margin, containerWidth - width - margin);
-    } else {
-      chosenSide = 'left';
-      candX = margin;
-    }
-  }
-
-  // Vertically align around the node (aligned slightly higher so panel top relates to node)
-  let candY = nodeY - 40;
-  candY = Math.max(margin, Math.min(containerHeight - maxHeight - margin, candY));
-
-  // Check collision against keep-out zones (e.g. top toolbar or summary card)
-  let candidateRect: BoundingBox = { left: candX, top: candY, width, height: maxHeight };
-
-  for (const zone of keepOutZones) {
-    if (rectsIntersect(candidateRect, zone)) {
-      // First attempt: push candY below zone
-      const pushedY = zone.top + zone.height + margin;
-      if (pushedY + maxHeight <= containerHeight - margin) {
-        candY = pushedY;
-        candidateRect.top = candY;
-      } else {
-        // If pushing down doesn't fit, attempt flipping to the other horizontal side
-        if (chosenSide === 'left' && spaceRight >= width) {
-          chosenSide = 'right';
-          candX = nodeX + pinClearance;
-          candidateRect.left = candX;
-        } else if (chosenSide === 'right' && spaceLeft >= width) {
-          chosenSide = 'left';
-          candX = nodeX - pinClearance - width;
-          candidateRect.left = candX;
-        }
-      }
-    }
-  }
-
-  // Ensure the panel does not cover the node itself
-  if (candX <= nodeX + 16 && candX + width >= nodeX - 16) {
-    if (chosenSide === 'right') {
-      candX = Math.min(containerWidth - width - margin, nodeX + pinClearance);
-    } else {
-      candX = Math.max(margin, nodeX - pinClearance - width);
-    }
-  }
-
-  const finalX = Math.max(margin, Math.min(containerWidth - width - margin, candX));
-  const finalY = Math.max(margin, Math.min(containerHeight - maxHeight - margin, candY));
-
+  // Default: Fixed bottom-left dock
+  const x = margin;
+  const y = Math.max(margin, containerHeight - maxHeight - margin);
   return {
-    x: Math.round(finalX),
-    y: Math.round(finalY),
-    width: Math.round(width),
-    maxHeight: Math.round(maxHeight),
-    side: chosenSide,
+    x,
+    y,
+    bottom: margin,
+    left: margin,
+    width,
+    maxHeight,
+    dock: 'bottom-left',
+    side: 'left',
     isBottomSheet: false,
   };
 }
