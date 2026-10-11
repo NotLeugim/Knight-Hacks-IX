@@ -16,6 +16,7 @@ const NAV_TABS: TabItem[] = [
   { id: '/anomalies', label: 'Anomalies', badge: 3 },
   { id: '/missions', label: 'Missions' },
   { id: '/insights', label: 'Insights' },
+  { id: '/weather', label: 'Weather' },
 ];
 
 const ROUTE_TITLES: Record<string, string> = {
@@ -24,6 +25,7 @@ const ROUTE_TITLES: Record<string, string> = {
   '/anomalies': 'Fleet Anomalies',
   '/missions': 'Mission History & Summaries',
   '/insights': 'Fleet Insights & Analytics',
+  '/weather': 'Plant Weather & Operations Impact',
   '/design-system': 'Design System Specification',
 };
 
@@ -67,6 +69,8 @@ export function AppShell({ children }: AppShellProps) {
     ? '/missions'
     : pathname.startsWith('/insights')
     ? '/insights'
+    : pathname.startsWith('/weather')
+    ? '/weather'
     : '/';
 
   // Contextual page title per route
