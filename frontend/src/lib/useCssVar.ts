@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 
 /**
- * Default fallback colors matching SPOTSight design tokens.
+ * Default fallback colors matching SPOTCheck design tokens.
  * Used during SSR or initial render before client-side style resolution.
  */
 const DEFAULT_HEX_FALLBACKS: Record<string, string> = {

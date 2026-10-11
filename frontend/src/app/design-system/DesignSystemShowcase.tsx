@@ -175,7 +175,7 @@ export default function DesignSystemShowcase() {
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
-              SPOTSight Orbit Design System
+              SPOTCheck Orbit Design System
             </h1>
             <Pill variant="live" pulse>
               ORBIT POLISH PASS

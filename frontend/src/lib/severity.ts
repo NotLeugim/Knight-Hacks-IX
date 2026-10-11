@@ -1,6 +1,6 @@
 /**
  * severity.ts — Shared severity configurations, rankings, and visual themes
- * for SPOTSight (Triage Queue & Facility Map integration).
+ * for SPOTCheck (Triage Queue & Facility Map integration).
  *
  * Single source of truth for:
  *   - Tailwind color tokens (Sidebar cards)
