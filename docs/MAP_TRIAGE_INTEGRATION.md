@@ -1,4 +1,4 @@
-# SPOTSight: Map ↔ Triage Queue Integration (UI-3)
+# SPOTCheck: Map ↔ Triage Queue Integration (UI-3)
 
 ## Overview
 The Map ↔ Triage Queue integration coordinates the **2D Facility Floor Plan** (`FacilityMap2D.tsx`) and the **Triage Queue Sidebar** (`TriageQueue.tsx`) into a unified operational dashboard for Boston Dynamics Orbit. 

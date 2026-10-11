@@ -1,5 +1,5 @@
 /**
- * api.ts — Fetch wrapper for the SPOTSight FastAPI backend.
+ * api.ts — Fetch wrapper for the SPOTCheck FastAPI backend.
  * Base URL is configured via NEXT_PUBLIC_API_URL env var (falls back to localhost).
  */
 
@@ -35,9 +35,9 @@ export interface HealthResponse {
 export async function checkHealth(): Promise<void> {
   try {
     const data = await get<HealthResponse>('/api/health');
-    console.log('[SPOTSight] Backend health:', data);
+    console.log('[SPOTCheck] Backend health:', data);
   } catch (err) {
-    console.warn('[SPOTSight] Backend unreachable — running in frontend-only mode.', err);
+    console.warn('[SPOTCheck] Backend unreachable — running in frontend-only mode.', err);
   }
 }
 
@@ -93,7 +93,7 @@ export function subscribeLiveStream(options: LiveStreamOptions): () => void {
       const data = JSON.parse(e.data) as ReplayEvent;
       options.onEvent(data);
     } catch (err) {
-      console.warn('[SPOTSight] Failed to parse SSE event payload:', err);
+      console.warn('[SPOTCheck] Failed to parse SSE event payload:', err);
     }
   };
 
@@ -139,12 +139,12 @@ export async function fetchTriageQueue(): Promise<{
     }
 
     console.warn(
-      '[SPOTSight] GET /api/triage returned empty queue or stub. Falling back to local triage fixture.'
+      '[SPOTCheck] GET /api/triage returned empty queue or stub. Falling back to local triage fixture.'
     );
     return { queue: triageFixture, source: 'fixture' };
   } catch (err) {
     console.warn(
-      '[SPOTSight] Failed to fetch /api/triage. Falling back to local triage fixture.',
+      '[SPOTCheck] Failed to fetch /api/triage. Falling back to local triage fixture.',
       err
     );
     return { queue: triageFixture, source: 'fixture' };
@@ -166,13 +166,13 @@ export async function fetchAnalytics(): Promise<{
       return { data, source: 'api' };
     }
     console.warn(
-      '[SPOTSight] GET /api/analytics returned invalid shape. Falling back to local fixture.',
+      '[SPOTCheck] GET /api/analytics returned invalid shape. Falling back to local fixture.',
       data
     );
     return { data: analyticsFixture, source: 'fixture' };
   } catch (err) {
     console.warn(
-      '[SPOTSight] Failed to fetch /api/analytics. Falling back to local fixture.',
+      '[SPOTCheck] Failed to fetch /api/analytics. Falling back to local fixture.',
       err
     );
     return { data: analyticsFixture, source: 'fixture' };
@@ -217,7 +217,7 @@ export async function fetchMissionSummary(
     const data = await get<MissionSummary>(`/api/missions/${missionId}/summary${query}`);
     return { data, source: 'api' };
   } catch (err) {
-    console.warn(`[SPOTSight] Failed to fetch summary for mission ${missionId}:`, err);
+    console.warn(`[SPOTCheck] Failed to fetch summary for mission ${missionId}:`, err);
     return { data: null, source: 'offline' };
   }
 }
@@ -236,7 +236,7 @@ export async function fetchShiftHandoff(
     }
     return { missions: [], source: 'api' };
   } catch (err) {
-    console.warn('[SPOTSight] Failed to fetch shift handoff:', err);
+    console.warn('[SPOTCheck] Failed to fetch shift handoff:', err);
     return { missions: [], source: 'offline' };
   }
 }
@@ -285,7 +285,7 @@ export async function fetchTrendAlerts(
     const data = await get<TrendAlertsResponse>(`/api/predictions/trends${query}`);
     return { data, source: 'api' };
   } catch (err) {
-    console.warn('[SPOTSight] Failed to fetch trend alerts, falling back to fixture:', err);
+    console.warn('[SPOTCheck] Failed to fetch trend alerts, falling back to fixture:', err);
     return { data: predictionsTrendsFixture, source: 'offline' };
   }
 }
@@ -302,7 +302,7 @@ export async function fetchTrendBacktest(): Promise<{
     const data = await get<TrendBacktestResponse>('/api/predictions/trends/backtest');
     return { data, source: 'api' };
   } catch (err) {
-    console.warn('[SPOTSight] Failed to fetch trend backtest, falling back to fixture:', err);
+    console.warn('[SPOTCheck] Failed to fetch trend backtest, falling back to fixture:', err);
     return { data: predictionsBacktestFixture, source: 'offline' };
   }
 }
@@ -319,7 +319,7 @@ export async function fetchPredictionModel(): Promise<{
     const data = await get<PredictionModelResponse>('/api/predictions/model');
     return { data, source: 'api' };
   } catch (err) {
-    console.warn('[SPOTSight] Failed to fetch prediction model, falling back to fixture:', err);
+    console.warn('[SPOTCheck] Failed to fetch prediction model, falling back to fixture:', err);
     return { data: predictionsModelFixture, source: 'offline' };
   }
 }
@@ -348,7 +348,7 @@ export async function fetchMissionForecast(
     );
     return { data, source: 'api' };
   } catch (err) {
-    console.warn(`[SPOTSight] Failed to fetch forecast for mission ${missionId}:`, err);
+    console.warn(`[SPOTCheck] Failed to fetch forecast for mission ${missionId}:`, err);
     return { data: null, source: 'offline' };
   }
 }
@@ -379,7 +379,7 @@ export async function fetchWeatherGeocode(
     );
     return { results: data?.results || [], source: 'api' };
   } catch (err) {
-    console.warn(`[SPOTSight] Failed to geocode query '${cleanQ}':`, err);
+    console.warn(`[SPOTCheck] Failed to geocode query '${cleanQ}':`, err);
     return { results: [], source: 'offline' };
   }
 }
@@ -405,7 +405,7 @@ export async function fetchWeatherForecast(
     const data = await get<WeatherForecastResponse>(`/api/weather/forecast?${params.toString()}`);
     return { data, source: 'api' };
   } catch (err) {
-    console.warn(`[SPOTSight] Failed to fetch forecast for (${lat}, ${lon}):`, err);
+    console.warn(`[SPOTCheck] Failed to fetch forecast for (${lat}, ${lon}):`, err);
     return { data: null, source: 'offline' };
   }
 }
@@ -432,7 +432,7 @@ export async function fetchPlantImpacts(
     const data = await get<PlantImpactResponse>(`/api/weather/plant-impacts?${params.toString()}`);
     return { data, source: 'api' };
   } catch (err) {
-    console.warn(`[SPOTSight] Failed to fetch plant impacts for ${plant} at (${lat}, ${lon}):`, err);
+    console.warn(`[SPOTCheck] Failed to fetch plant impacts for ${plant} at (${lat}, ${lon}):`, err);
     return { data: null, source: 'offline' };
   }
 }
@@ -440,3 +440,25 @@ export async function fetchPlantImpacts(
 
 
 
+
+// ── Worker Safety Advisory ──────────────────────────────────────────────────
+
+import type { WorkerSafetyData, WorkerSafetyResponse } from './workerSafetyTypes';
+export * from './workerSafetyTypes';
+
+/**
+ * Fetches worker occupational safety recommendations for follow-up visits.
+ * Returns { data, source: 'live' } on success, or { data: null, source: 'offline' } if unreachable.
+ */
+export async function fetchWorkerSafety(
+  missionId: string
+): Promise<WorkerSafetyResponse> {
+  try {
+    const data = await get<WorkerSafetyData>(`/api/worker-safety/missions/${encodeURIComponent(missionId)}`);
+    return { data, source: 'live' };
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.warn(`[SPOTCheck] Failed to fetch worker safety for mission ${missionId}:`, err);
+    return { data: null, source: 'offline', error: errorMessage };
+  }
+}

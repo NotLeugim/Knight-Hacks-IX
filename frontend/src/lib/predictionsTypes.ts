@@ -1,5 +1,5 @@
 /**
- * predictionsTypes.ts — TypeScript interfaces for SPOTSight predictive analytics (issue #16 / AI-3).
+ * predictionsTypes.ts — TypeScript interfaces for SPOTCheck predictive analytics (issue #16 / AI-3).
  * Covers:
  * 1. Trend Watch (active sliding-window wear alerts & backtest)
  * 2. Pre-mission Risk Forecast Model & Route Forecast

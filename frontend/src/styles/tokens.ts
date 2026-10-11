@@ -1,5 +1,5 @@
 /**
- * SPOTSight Orbit-Style Design Tokens
+ * SPOTCheck Orbit-Style Design Tokens
  * 
  * Boston Dynamics Orbit robot fleet management design tokens.
  * Single source of truth for colors, typography, spacing, and shapes.
@@ -12,7 +12,7 @@ export const colors = {
   navyLight: '#1B477D',          // TopBar hover/highlight
   orbitBlue: '#3F8FC9',          // SubToolbar background (fixed 48px), primary accent
   orbitBlueDark: '#2B6EA0',      // SubToolbar active/selected accents
-  orbitBlueLight: '#62A9DB',     // Wordmark 'Sight' accent / hover state
+  orbitBlueLight: '#62A9DB',     // Wordmark 'Check' accent / hover state
 
   // SubToolbar SegmentedTabs Tokens (translucent white over blue bar)
   tabs: {
@@ -187,7 +187,7 @@ export const typography = {
     base: '16px',                // 16px - body, panel titles
     lg: '18px',                  // 18px - panel titles (large/Orbit standard)
     title: '22px',               // 22px - SubToolbar contextual page title
-    xl: '24px',                  // 24px - wordmark "SPOTSight"
+    xl: '24px',                  // 24px - wordmark "SPOTCheck"
     kpi: '40px',                 // 40px - big centered KPI values
   },
   lineHeight: {

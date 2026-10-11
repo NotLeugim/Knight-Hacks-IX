@@ -236,3 +236,27 @@ html, body {
   color: #ffffff !important;
 }
 
+/* ── Raia Chatbot Widget Overrides ── */
+/* Visually hide default bottom-right launch bubble off-screen so DOM nodes remain active and clickable */
+.raia-chat-widget__launcher {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  position: fixed !important;
+  bottom: -9999px !important;
+  right: -9999px !important;
+}
+
+.raia-chat-widget__suggestions,
+.raia-chat-widget__proactive-bubble-container {
+  display: none !important;
+}
+
+/* Position chat modal dropdown beneath the top navigation bar */
+.raia-chat-widget__container.raia-chat-mode-popup {
+  top: 70px !important;
+  bottom: auto !important;
+  right: 16px !important;
+  transform-origin: right top !important;
+  max-height: calc(100vh - 86px) !important;
+}
+

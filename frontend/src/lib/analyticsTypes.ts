@@ -1,5 +1,5 @@
 /**
- * analyticsTypes.ts — TypeScript types for SPOTSight analytics contracts.
+ * analyticsTypes.ts — TypeScript types for SPOTCheck analytics contracts.
  * Matches GET /api/analytics contract (issue #3 / DATA-2).
  */
 

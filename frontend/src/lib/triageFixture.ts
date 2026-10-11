@@ -1,5 +1,5 @@
 /**
- * triageFixture.ts — Typed fallback fixture for the SPOTSight Triage Queue.
+ * triageFixture.ts — Typed fallback fixture for the SPOTCheck Triage Queue.
  * Source:
  *   - data/SPOT_KnightHacks_Challenge_Kit Part One/02_DATA/anomalies.csv
  *

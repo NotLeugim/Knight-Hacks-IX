@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { fetchMissionSummary } from '@/lib/api';
 import { MissionSummary, MissionFacts } from '@/lib/summaryTypes';
 import { MissionForecast } from './MissionForecast';
+import { WorkerSafety } from './WorkerSafety';
 import {
   FileText,
   AlertTriangle,
@@ -330,6 +331,7 @@ export default function MissionDetail({ missionId }: MissionDetailProps) {
               </div>
             )}
 
+            <WorkerSafety missionId={missionId} />
             <MissionForecast missionId={missionId} />
 
             {/* Failed Actions */}
