@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useCallback, memo } from 'react';
+import React, { useEffect, useCallback, useMemo, memo } from 'react';
 import {
   AlertCircle,
   AlertTriangle,
@@ -203,6 +203,16 @@ const AnomalyCard = memo(function AnomalyCard({
 export interface TriageQueueProps {
   /** Optional callback fired when an anomaly card is clicked */
   onSelect?: (anomalyId: string) => void;
+  /** Optional callback fired when an anomaly card or issue is clicked, passing issue ID */
+  onSelectIssue?: (issueId: string | null) => void;
+  /** Optional currently selected issue ID */
+  selectedIssueId?: string | null;
+  /** Optional callback fired when an anomaly card is clicked, passing normalized waypoint ID */
+  onSelectWaypoint?: (waypointId: string | null) => void;
+  /** Optional currently selected waypoint ID */
+  selectedWaypointId?: string | null;
+  /** Optional anomaly data source passed from parent */
+  anomalies?: TriageAnomaly[];
   /** Optional extra container class name */
   className?: string;
   /** Whether to show the top mini subheader */
@@ -211,22 +221,28 @@ export interface TriageQueueProps {
 
 export default function TriageQueue({
   onSelect,
+  onSelectIssue,
+  selectedIssueId: selectedIssueIdProp,
+  onSelectWaypoint,
+  selectedWaypointId: selectedWaypointIdProp,
+  anomalies: anomaliesProp,
   className,
   showHeader = true,
 }: TriageQueueProps) {
   const triage = useTriage();
 
   const {
-    filteredAnomalies,
-    anomalies,
+    filteredAnomalies: contextFilteredAnomalies,
+    anomalies: contextAnomalies,
     isLoading,
     error,
-    selectedWaypointId,
+    selectedWaypointId: contextSelectedWaypointId,
     selectedAnomalyId,
     hoveredAnomalyId,
     hoveredWaypointId,
     reviewRequiredOnly,
     selectAnomaly,
+    selectWaypoint,
     setHoveredAnomalyId,
     setReviewRequiredOnly,
     clearFilter,
@@ -234,25 +250,88 @@ export default function TriageQueue({
     reloadQueue,
   } = triage;
 
-  // Global Escape key listener to clear waypoint filter
+  const anomalies = anomaliesProp ?? contextAnomalies;
+  const filteredAnomalies = contextFilteredAnomalies;
+
+  // Resolve effective waypoint ID from selectedIssueIdProp or selectedWaypointIdProp
+  const selectedWaypointId = useMemo(() => {
+    if (selectedWaypointIdProp) return selectedWaypointIdProp;
+    if (selectedIssueIdProp) {
+      const found = anomalies.find(
+        (a) =>
+          (a.id && a.id.toLowerCase() === selectedIssueIdProp.toLowerCase()) ||
+          (a.anomaly_id && a.anomaly_id.toLowerCase() === selectedIssueIdProp.toLowerCase())
+      );
+      if (found?.location_id) {
+        return normalizeWaypointId(found.location_id);
+      }
+    }
+    return contextSelectedWaypointId;
+  }, [selectedWaypointIdProp, selectedIssueIdProp, anomalies, contextSelectedWaypointId]);
+
+  // Sync external selectedWaypointId with context if provided
+  useEffect(() => {
+    if (selectedWaypointId !== contextSelectedWaypointId) {
+      selectWaypoint(selectedWaypointId);
+    }
+  }, [selectedWaypointId, contextSelectedWaypointId, selectWaypoint]);
+
+  // Sync external selectedIssueIdProp with context if provided
+  useEffect(() => {
+    if (selectedIssueIdProp !== undefined && selectedIssueIdProp !== selectedAnomalyId) {
+      if (selectedIssueIdProp) {
+        selectAnomaly(selectedIssueIdProp, 'queue');
+      }
+    }
+  }, [selectedIssueIdProp, selectedAnomalyId, selectAnomaly]);
+
+  // Global Escape key listener to clear waypoint and issue selection
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && selectedWaypointId) {
+      if (e.key === 'Escape' && (selectedIssueIdProp || selectedWaypointId)) {
         clearFilter();
+        onSelectIssue?.(null);
+        onSelectWaypoint?.(null);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedWaypointId, clearFilter]);
+  }, [selectedIssueIdProp, selectedWaypointId, clearFilter, onSelectIssue, onSelectWaypoint]);
 
   const handleCardClick = useCallback(
     (id: string) => {
       // Contract: Logs anomaly ID to console
       selectAnomaly(id, 'queue');
       onSelect?.(id);
+      onSelectIssue?.(id);
+
+      // Extract waypoint from clicked anomaly and invoke onSelectWaypoint
+      const found = anomalies.find((a) => (a.id || a.anomaly_id) === id);
+      if (found?.location_id) {
+        const wpId = normalizeWaypointId(found.location_id);
+        onSelectWaypoint?.(wpId);
+      }
     },
-    [selectAnomaly, onSelect]
+    [selectAnomaly, onSelect, onSelectIssue, onSelectWaypoint, anomalies]
   );
+
+  const handleNextCritical = useCallback(() => {
+    selectNextCritical();
+    const criticalList = anomalies.filter(
+      (a) => a.severity?.toUpperCase().trim() === 'CRITICAL'
+    );
+    if (criticalList.length > 0) {
+      const target = criticalList[0];
+      const issueId = target.id || target.anomaly_id;
+      if (issueId) {
+        onSelectIssue?.(issueId);
+      }
+      if (target.location_id) {
+        const wpId = normalizeWaypointId(target.location_id);
+        onSelectWaypoint?.(wpId);
+      }
+    }
+  }, [selectNextCritical, anomalies, onSelectIssue, onSelectWaypoint]);
 
   return (
     <div
@@ -288,7 +367,7 @@ export default function TriageQueue({
               {/* Operator Workflow: Next Critical Quick Action */}
               <button
                 type="button"
-                onClick={selectNextCritical}
+                onClick={handleNextCritical}
                 title="Focus next critical anomaly on map"
                 aria-label="Focus next critical anomaly"
                 className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-red-950/70 text-red-300 border border-red-500/40 hover:bg-red-900 transition-colors shadow-xs"
@@ -342,7 +421,12 @@ export default function TriageQueue({
                 </span>
                 <button
                   type="button"
-                  onClick={clearFilter}
+                  id="clear-waypoint-filter-btn"
+                  onClick={() => {
+                    clearFilter();
+                    onSelectIssue?.(null);
+                    onSelectWaypoint?.(null);
+                  }}
                   title="Clear waypoint filter (or press Escape)"
                   aria-label={`Clear filter for ${selectedWaypointId}`}
                   className="hover:text-white hover:bg-blue-800/60 rounded-full p-0.5 transition-colors ml-0.5"
@@ -443,7 +527,9 @@ export default function TriageQueue({
           <ul className="flex flex-col gap-2.5 list-none m-0 p-0">
             {filteredAnomalies.map((item, index) => {
               const anomalyId = item.id || item.anomaly_id || `item-${index}`;
-              const isSelected = selectedAnomalyId === anomalyId;
+              const isSelected = selectedIssueIdProp
+                ? selectedIssueIdProp.toLowerCase() === anomalyId.toLowerCase()
+                : selectedAnomalyId === anomalyId;
               const isHovered =
                 hoveredAnomalyId === anomalyId ||
                 (Boolean(hoveredWaypointId) &&
