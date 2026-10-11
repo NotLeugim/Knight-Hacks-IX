@@ -28,7 +28,7 @@ export function SubToolbar({
       className={cn(
         // Fixed 48px height across all routes
         'w-full h-12 min-h-[48px] max-h-[48px] bg-orbit-blue border-b border-[#357AA8]',
-        'grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-3 sm:px-6 select-none shrink-0 gap-3 z-30 shadow-xs',
+        'grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-3 sm:px-6 select-none shrink-0 gap-3 z-sub-toolbar shadow-xs',
         className
       )}
     >

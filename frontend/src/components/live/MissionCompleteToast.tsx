@@ -80,7 +80,7 @@ export default function MissionCompleteToast() {
   if (isCollapsed) {
     return (
       <div
-        className="absolute bottom-4 right-4 z-[1100] flex items-center gap-2 px-3 py-1.5 rounded-full shadow-lg border transition-all cursor-pointer backdrop-blur-md hover:border-orbit-blue"
+        className="absolute bottom-4 right-4 z-toast flex items-center gap-2 px-3 py-1.5 rounded-full shadow-lg border transition-all cursor-pointer backdrop-blur-md hover:border-orbit-blue"
         style={{
           background: 'rgba(23, 27, 34, 0.95)',
           borderColor: 'var(--color-border)',
@@ -117,7 +117,7 @@ export default function MissionCompleteToast() {
 
   return (
     <div
-      className="absolute bottom-4 right-4 z-[1100] w-96 max-w-[calc(100vw-2rem)] rounded-xl p-4 shadow-2xl border flex flex-col gap-3 transition-all backdrop-blur-md animate-in fade-in slide-in-from-bottom-4 duration-300"
+      className="absolute bottom-4 right-4 z-toast w-96 max-w-[calc(100vw-2rem)] rounded-xl p-4 shadow-2xl border flex flex-col gap-3 transition-all backdrop-blur-md animate-in fade-in slide-in-from-bottom-4 duration-300"
       style={{
         background: 'rgba(23, 27, 34, 0.96)',
         borderColor: 'var(--color-border)',

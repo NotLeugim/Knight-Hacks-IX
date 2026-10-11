@@ -8,6 +8,7 @@ import { SubToolbar } from './SubToolbar';
 import { SegmentedTabs, type TabItem } from './SegmentedTabs';
 import { Pill } from './Pill';
 import { fetchAnalytics } from '@/lib/api';
+import { MissionSummaryModal } from '@/components/missions/MissionSummaryModal';
 
 const NAV_TABS: TabItem[] = [
   { id: '/', label: 'Live Mission' },
@@ -34,6 +35,7 @@ export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [fleetConfidence, setFleetConfidence] = useState<number | null>(null);
+  const [isSummaryOpen, setIsSummaryOpen] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -94,7 +96,7 @@ export function AppShell({ children }: AppShellProps) {
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-orbit-bg text-text-primary antialiased">
       {/* ── Fixed 64px TopBar ── */}
-      <TopBar />
+      <TopBar onSummaryClick={() => setIsSummaryOpen(true)} />
 
       {/* ── Fixed 48px SubToolbar with Contextual Title ── */}
       <SubToolbar
@@ -125,6 +127,12 @@ export function AppShell({ children }: AppShellProps) {
       <main className="flex-1 min-h-0 overflow-hidden bg-orbit-bg">
         {children}
       </main>
+
+      {/* ── AI Mission Summary Modal ── */}
+      <MissionSummaryModal
+        isOpen={isSummaryOpen}
+        onClose={() => setIsSummaryOpen(false)}
+      />
     </div>
   );
 }

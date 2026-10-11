@@ -1562,7 +1562,7 @@ export default function InteractiveFloorPlan({
       style={style}
     >
       {/* ── Top Bar Controls & Status Legend ── */}
-      <div className="absolute top-4 left-4 right-4 z-[1000] pointer-events-none flex flex-wrap items-start justify-between gap-2.5">
+      <div className="absolute top-4 left-4 right-4 z-map-overlays pointer-events-none flex flex-wrap items-start justify-between gap-2.5">
         {/* Left Toolbar: Mode Toggle & Floor Switcher */}
         <div className="pointer-events-auto flex flex-wrap items-center gap-2">
           {/* Mode Toggle (Segmented Control: Pathfinding Mode vs Action Mode) */}
@@ -1880,7 +1880,7 @@ export default function InteractiveFloorPlan({
           <div
             id="action-mode-hover-tooltip"
             role="tooltip"
-            className="absolute z-[1200] pointer-events-none transition-[left,top] duration-75 ease-out"
+            className="absolute z-popover pointer-events-none transition-[left,top] duration-75 ease-out"
             style={{
               left: `${layout.x}px`,
               top: `${layout.y}px`,
@@ -2015,7 +2015,7 @@ export default function InteractiveFloorPlan({
         return (
           <div
             id="action-mode-failure-detail-panel"
-            className="absolute z-[1100] flex flex-col bg-[#071b33]/96 backdrop-blur-md border border-sky-600/80 p-3 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans select-none ring-1 ring-sky-500/20"
+            className="absolute z-drawer flex flex-col bg-[#071b33]/96 backdrop-blur-md border border-sky-600/80 p-3 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-150 font-sans select-none ring-1 ring-sky-500/20"
             style={positionStyles}
           >
             {/* Header */}
@@ -2221,7 +2221,7 @@ export default function InteractiveFloorPlan({
       {activeMode === 'pathfinding' && selectedWp && (
         <div
           id="waypoint-telemetry-panel"
-          className="absolute bottom-4 left-4 right-4 md:right-auto md:w-96 z-[1000] bg-[#0c2340]/95 backdrop-blur-md border border-sky-700 p-3.5 rounded-xl shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200"
+          className="absolute bottom-4 left-4 right-4 md:right-auto md:w-96 z-drawer bg-[#0c2340]/95 backdrop-blur-md border border-sky-700 p-3.5 rounded-xl shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200"
         >
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-2">
