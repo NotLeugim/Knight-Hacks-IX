@@ -28,12 +28,12 @@ export function SubToolbar({
       className={cn(
         // Fixed 48px height across all routes
         'w-full h-12 min-h-[48px] max-h-[48px] bg-orbit-blue border-b border-[#357AA8]',
-        'flex items-center justify-between px-3 sm:px-6 select-none shrink-0 gap-3 z-sub-toolbar shadow-xs',
+        'grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-3 sm:px-6 select-none shrink-0 gap-3 z-sub-toolbar shadow-xs',
         className
       )}
     >
       {/* ── Left Slot: Contextual Page Title (~22px, regular-to-medium, white) ── */}
-      <div className="flex items-center min-w-0 shrink max-w-[40%] sm:max-w-[30%]">
+      <div className="flex items-center min-w-0">
         {leftSlot ? (
           leftSlot
         ) : (
@@ -49,14 +49,12 @@ export function SubToolbar({
       </div>
 
       {/* ── Center Slot: SegmentedTabs or Main Navigation ── */}
-      {centerContent && (
-        <div className="flex-1 flex items-center justify-center min-w-0 px-2 overflow-x-auto no-scrollbar">
-          {centerContent}
-        </div>
-      )}
+      <div className="flex items-center justify-center min-w-0 px-2 overflow-hidden">
+        {centerContent}
+      </div>
 
       {/* ── Right Slot: DateRangeSelect, Split Refresh, Status Badges, Pills ── */}
-      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+      <div className="flex items-center justify-end gap-2 sm:gap-3 min-w-0">
         {rightSlot}
       </div>
     </div>

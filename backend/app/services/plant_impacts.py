@@ -3,7 +3,6 @@ backend/app/services/plant_impacts.py
 
 Engineering evaluation service analyzing weather effects on power plant safety and operations.
 Supported plant types:
-- mix (Diverse Generation Mix)
 - natural_gas (Combined Cycle / Peaking Natural Gas)
 - nuclear (Nuclear Power Facility)
 - solar (Utility Photovoltaic Solar)
@@ -22,7 +21,6 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 VALID_PLANT_TYPES = {
-    "mix",
     "natural_gas",
     "nuclear",
     "solar",
@@ -242,10 +240,13 @@ def evaluate_natural_gas_impact(hour_data: dict[str, Any], alerts: list[dict[str
         output_pct = 100.0
 
     if output_pct >= 100.0:
+        status_label = "Nominal capacity"
         output_label = f"Estimated output: ~{output_pct:.0f}% of rated (nominal)"
     elif output_pct >= 90.0:
+        status_label = "Slightly reduced (warm air)"
         output_label = f"Estimated output: ~{output_pct:.0f}% of rated (warm air slightly lowers gas turbine output)"
     else:
+        status_label = "Reduced in heat"
         output_label = f"Estimated output: ~{output_pct:.0f}% of rated (warm air lowers gas turbine output)"
 
     if temp <= 0.0:
@@ -259,6 +260,7 @@ def evaluate_natural_gas_impact(hour_data: dict[str, Any], alerts: list[dict[str
 
     return {
         "impactLevel": level,
+        "status": status_label,
         "estimatedOutputPct": output_pct,
         "outputLabel": output_label,
         "reasons": reasons,
@@ -549,104 +551,6 @@ def evaluate_battery_impact(hour_data: dict[str, Any], alerts: list[dict[str, An
     }
 
 
-def evaluate_mix_impact(
-    hour_data: dict[str, Any],
-    alerts: list[dict[str, Any]],
-) -> dict[str, Any]:
-    """
-    Synthesizes the Diverse Generation Mix view for a given hour.
-    Combines Gas, Nuclear, Solar, Wind, and Battery Storage into a balanced overview.
-    """
-    gas = evaluate_natural_gas_impact(hour_data, alerts)
-    nuc = evaluate_nuclear_impact(hour_data, alerts)
-    sol = evaluate_solar_impact(hour_data, alerts)
-    wnd = evaluate_wind_impact(hour_data, alerts)
-    bat = evaluate_battery_impact(hour_data, alerts)
-
-    # Determine highest overall severity
-    levels = [gas["impactLevel"], nuc["impactLevel"], sol["impactLevel"], wnd["impactLevel"], bat["impactLevel"]]
-    if "Warning" in levels:
-        overall_level = "Warning"
-    elif "Watch" in levels:
-        overall_level = "Watch"
-    else:
-        overall_level = "Normal"
-
-    # Build concise hourly balance summary sentence
-    summary_parts: list[str] = []
-    sol_idx = sol.get("estimatedOutputIndex") or 0.0
-    wnd_idx = wnd.get("estimatedOutputIndex") or 0.0
-    gas_pct = gas.get("estimatedOutputPct") or 100.0
-    temp = hour_data["temperature"]
-
-    if sol_idx >= 0.7:
-        summary_parts.append("Strong sun: solar high.")
-    elif sol_idx == 0.0:
-        summary_parts.append("Night/overcast: solar zero.")
-    else:
-        summary_parts.append("Moderate sun: solar steady.")
-
-    if wnd_idx >= 0.8:
-        summary_parts.append("Brisk wind: wind generation high.")
-    elif wnd_idx <= 0.1:
-        summary_parts.append("Light winds: wind generation low.")
-    else:
-        summary_parts.append("Moderate winds: wind partial.")
-
-    if temp >= 35.0:
-        summary_parts.append(f"Heat ({temp:.0f} °C): gas output reduced to ~{gas_pct:.0f}%, battery cooling load elevated.")
-    elif temp <= 0.0:
-        summary_parts.append(f"Freezing ({temp:.0f} °C): freeze protections active across outdoor equipment.")
-
-    summary_parts.append("Nuclear steady base-load.")
-    hourly_summary = " ".join(summary_parts)
-
-    balancing_explanation = (
-        "How the diverse mix balances itself: Battery storage absorbs surplus midday solar and shifts it "
-        "into evening peak hours. Fast-ramping natural gas units adjust dispatch rapidly to compensate for "
-        "sudden wind or cloud variations. Nuclear units provide dependable, round-the-clock baseload power "
-        "regardless of weather, keeping the overall grid resilient across changing conditions."
-    )
-
-    combined_actions: list[str] = []
-    for comp in (gas, nuc, sol, wnd, bat):
-        combined_actions.extend(comp.get("recommendedActions", []))
-
-    return {
-        "impactLevel": overall_level,
-        "summary": hourly_summary,
-        "balancingExplanation": balancing_explanation,
-        "components": {
-            "natural_gas": {
-                "impactLevel": gas["impactLevel"],
-                "status": "Nominal capacity" if gas_pct >= 100.0 else ("Slightly reduced (warm air)" if gas_pct >= 90.0 else "Reduced in heat"),
-                "output": gas["outputLabel"],
-            },
-            "nuclear": {
-                "impactLevel": nuc["impactLevel"],
-                "status": "Steady base-load",
-                "output": nuc["outputLabel"],
-            },
-            "solar": {
-                "impactLevel": sol["impactLevel"],
-                "status": "High generation" if sol_idx >= 0.7 else ("Zero (night)" if sol_idx == 0.0 else "Partial generation"),
-                "output": sol["outputLabel"],
-            },
-            "wind": {
-                "impactLevel": wnd["impactLevel"],
-                "status": "High generation" if wnd_idx >= 0.8 else ("Cut-out / low wind" if wnd_idx == 0.0 else "Partial generation"),
-                "output": wnd["outputLabel"],
-            },
-            "battery_storage": {
-                "impactLevel": bat["impactLevel"],
-                "status": "High cooling load" if temp >= 35.0 else "Ready to buffer intermittency",
-                "output": bat["outputLabel"],
-            },
-        },
-        "recommendedActions": list(dict.fromkeys(combined_actions))[:6],
-    }
-
-
 def compute_plant_impacts(forecast_data: dict[str, Any], plant_type: str) -> dict[str, Any]:
     """
     Computes weather impacts for the current hour and all next 48 hours for the chosen plant type.
@@ -663,7 +567,6 @@ def compute_plant_impacts(forecast_data: dict[str, Any], plant_type: str) -> dic
     current_hour = hourly[0]
 
     evaluators = {
-        "mix": evaluate_mix_impact,
         "natural_gas": evaluate_natural_gas_impact,
         "nuclear": evaluate_nuclear_impact,
         "solar": evaluate_solar_impact,

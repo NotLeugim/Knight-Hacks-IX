@@ -71,8 +71,8 @@ async def get_plant_impacts(
     lat: float = Query(..., description="Latitude between -90 and 90"),
     lon: float = Query(..., description="Longitude between -180 and 180"),
     plant: str = Query(
-        "mix",
-        description="Power plant type: mix, natural_gas, nuclear, solar, wind, battery_storage",
+        "nuclear",
+        description="Power plant type: natural_gas, nuclear, solar, wind, battery_storage",
     ),
     name: str | None = Query(None, description="Optional human-readable location label"),
 ) -> dict[str, Any]:

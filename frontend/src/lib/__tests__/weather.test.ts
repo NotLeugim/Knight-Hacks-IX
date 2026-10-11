@@ -11,6 +11,7 @@ import {
   fetchWeatherForecast,
   fetchPlantImpacts,
 } from '../api';
+import { resolvePlantType } from '../../components/weather/PlantImpactSection';
 
 describe('Weather Dashboard & Plant Impacts Tests', () => {
   test('unit conversions convert temperature, precipitation, and wind accurately', () => {
@@ -84,11 +85,26 @@ describe('Weather Dashboard & Plant Impacts Tests', () => {
       assert.equal(forecastRes.source, 'offline');
       assert.equal(forecastRes.data, null);
 
-      const impactRes = await fetchPlantImpacts(28.5, -81.3, 'mix');
+      const impactRes = await fetchPlantImpacts(28.5, -81.3, 'nuclear');
       assert.equal(impactRes.source, 'offline');
       assert.equal(impactRes.data, null);
     } finally {
       globalThis.fetch = originalFetch;
     }
+  });
+
+  test('saved plant type validation resolves "mix", missing, or invalid values to "nuclear"', () => {
+    assert.equal(resolvePlantType('mix'), 'nuclear');
+    assert.equal(resolvePlantType(null), 'nuclear');
+    assert.equal(resolvePlantType(undefined), 'nuclear');
+    assert.equal(resolvePlantType('unknown_plant'), 'nuclear');
+    assert.equal(resolvePlantType(''), 'nuclear');
+
+    // Valid values are preserved
+    assert.equal(resolvePlantType('nuclear'), 'nuclear');
+    assert.equal(resolvePlantType('natural_gas'), 'natural_gas');
+    assert.equal(resolvePlantType('battery_storage'), 'battery_storage');
+    assert.equal(resolvePlantType('solar'), 'solar');
+    assert.equal(resolvePlantType('wind'), 'wind');
   });
 });
