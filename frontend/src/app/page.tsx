@@ -8,7 +8,6 @@ import { triageFixture } from '../lib/triageFixture';
 import { Panel } from '@/components/ui/Panel';
 import { TriageProvider } from '@/context/TriageContext';
 import type { OverlayMode } from '../components/InteractiveFloorPlan';
-import MissionCompleteToast from '@/components/live/MissionCompleteToast';
 
 const InteractiveFloorPlan = dynamic(
   () => import('../components/InteractiveFloorPlan'),
@@ -20,6 +19,8 @@ export default function Home() {
   const [anomalies, setAnomalies] = useState<TriageAnomaly[]>(triageFixture);
   // Hoisted global issue selection state (tracks specific anomaly ID e.g. 'AN014')
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
+  // Hoisted global waypoint selection state (e.g. 'WP03')
+  const [selectedWaypointId, setSelectedWaypointId] = useState<string | null>(null);
 
   // Action Mode overlay state: defaults to 'pathfinding'
   const [overlayMode, setOverlayMode] = useState<OverlayMode>('pathfinding');
@@ -44,7 +45,7 @@ export default function Home() {
   }, []);
 
   return (
-    <TriageProvider initialAnomalies={anomalies}>
+    <TriageProvider initialAnomalies={anomalies} onAnomaliesChange={setAnomalies}>
       <div className="h-full p-4 sm:p-6 flex flex-col lg:flex-row gap-4 overflow-hidden bg-orbit-bg select-none">
         {/* ── Left Stage: Facility Map in Orbit Panel ── */}
         <Panel
@@ -57,11 +58,12 @@ export default function Home() {
             anomalies={anomalies}
             selectedIssueId={selectedIssueId}
             onSelectIssueId={setSelectedIssueId}
+            selectedWaypointId={selectedWaypointId}
+            onSelectWaypointId={setSelectedWaypointId}
             overlayMode={overlayMode}
             onOverlayModeChange={setOverlayMode}
             onNodeSelect={handleNodeSelect}
           />
-          <MissionCompleteToast />
         </Panel>
 
         {/* ── Right Column: Triage Queue Sidebar (Expanded to Fill Empty Space) ── */}
@@ -79,6 +81,8 @@ export default function Home() {
               anomalies={anomalies}
               selectedIssueId={selectedIssueId}
               onSelectIssue={setSelectedIssueId}
+              selectedWaypointId={selectedWaypointId}
+              onSelectWaypoint={setSelectedWaypointId}
             />
           </Panel>
         </div>

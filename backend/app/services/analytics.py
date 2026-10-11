@@ -158,12 +158,19 @@ def compute_mission_paradox(
         succeeded = int(len(m_actions[m_actions["status"] == "SUCCESS"]))
         failed = int(len(m_actions[m_actions["status"] != "SUCCESS"]))
 
+        start_time = str(row["start_time"]) if "start_time" in row and pd.notna(row["start_time"]) else None
+        end_time = str(row["end_time"]) if "end_time" in row and pd.notna(row["end_time"]) else None
+        duration_min = int(row["duration_min"]) if "duration_min" in row and pd.notna(row["duration_min"]) else None
+
         missions_list.append({
             "missionId": m_id,
             "reportedStatus": reported_status,
             "config": config,
             "actionsSucceeded": succeeded,
             "actionsFailed": failed,
+            "startTime": start_time,
+            "endTime": end_time,
+            "durationMin": duration_min,
         })
 
         if reported_status == "COMPLETED":

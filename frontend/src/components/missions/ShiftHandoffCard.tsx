@@ -3,8 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { fetchShiftHandoff } from '@/lib/api';
 import { MissionSummary } from '@/lib/summaryTypes';
-import { Clock, Bot, Cpu, CheckCircle2, AlertTriangle, XCircle, ArrowRight } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Clock, Calendar, Bot, Cpu, CheckCircle2, AlertTriangle, XCircle, ArrowRight } from 'lucide-react';
+import { cn, formatMissionDateTime } from '@/lib/utils';
 import { STATUS_CONFIG } from '@/lib/status';
 import { formatBullet } from './MissionDetail';
 
@@ -131,9 +131,17 @@ export default function ShiftHandoffCard({
                 <div className="flex flex-col gap-2">
                   {/* Top line: ID, status, confidence */}
                   <div className="flex items-center justify-between">
-                    <span className="font-mono font-bold text-sm text-orbit-text">
-                      {m.missionId}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-sm text-orbit-text">
+                        {m.missionId}
+                      </span>
+                      {m.facts?.startTime && (
+                        <span className="text-[10px] text-orbit-text-muted flex items-center gap-1 font-mono">
+                          <Calendar className="w-3 h-3 text-slate-400 shrink-0" />
+                          <span>{formatMissionDateTime(m.facts.startTime)}</span>
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-1.5">
                       <span
                         className={cn(

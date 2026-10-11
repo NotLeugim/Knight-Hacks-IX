@@ -257,7 +257,7 @@ export default function TriageQueue({
 
   // Resolve effective waypoint ID from selectedIssueIdProp or selectedWaypointIdProp
   const selectedWaypointId = useMemo(() => {
-    if (selectedWaypointIdProp) return selectedWaypointIdProp;
+    if (selectedWaypointIdProp !== undefined) return selectedWaypointIdProp;
     if (selectedIssueIdProp) {
       const found = anomalies.find(
         (a) =>
@@ -318,22 +318,42 @@ export default function TriageQueue({
   );
 
   const handleNextCritical = useCallback(() => {
-    selectNextCritical();
     const criticalList = anomalies.filter(
-      (a) => a.severity?.toUpperCase().trim() === 'CRITICAL'
+      (a) => toStatus(a.severity) === 'critical'
     );
-    if (criticalList.length > 0) {
-      const target = criticalList[0];
-      const issueId = target.id || target.anomaly_id;
-      if (issueId) {
-        onSelectIssue?.(issueId);
-      }
-      if (target.location_id) {
-        const wpId = normalizeWaypointId(target.location_id);
-        onSelectWaypoint?.(wpId);
-      }
+    if (criticalList.length === 0) return;
+
+    const currentId = selectedIssueIdProp || selectedAnomalyId;
+    const currentIndex = criticalList.findIndex(
+      (a) => (a.id || a.anomaly_id) === currentId
+    );
+
+    const nextIndex =
+      currentIndex >= 0 && currentIndex < criticalList.length - 1
+        ? currentIndex + 1
+        : 0;
+
+    const target = criticalList[nextIndex];
+    const issueId = target.id || target.anomaly_id;
+
+    selectAnomaly(issueId, 'queue');
+    if (issueId) {
+      onSelect?.(issueId);
+      onSelectIssue?.(issueId);
     }
-  }, [selectNextCritical, anomalies, onSelectIssue, onSelectWaypoint]);
+    if (target.location_id) {
+      const wpId = normalizeWaypointId(target.location_id);
+      onSelectWaypoint?.(wpId);
+    }
+  }, [
+    anomalies,
+    selectedIssueIdProp,
+    selectedAnomalyId,
+    selectAnomaly,
+    onSelect,
+    onSelectIssue,
+    onSelectWaypoint,
+  ]);
 
   return (
     <div

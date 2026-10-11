@@ -4,8 +4,8 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { fetchAnalytics } from '@/lib/api';
 import { AnalyticsResponse, MissionConfidenceItem } from '@/lib/analyticsTypes';
 import { analyticsFixture } from '@/lib/analyticsFixture';
-import { Compass, CheckCircle2, AlertTriangle, XCircle, Search } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Compass, CheckCircle2, AlertTriangle, XCircle, Search, Calendar } from 'lucide-react';
+import { cn, formatMissionDateTime } from '@/lib/utils';
 import { STATUS_CONFIG } from '@/lib/status';
 
 interface MissionRowItem {
@@ -17,6 +17,9 @@ interface MissionRowItem {
   totalActions: number;
   confidenceScore: number;
   anomalyCount: number;
+  startTime?: string;
+  endTime?: string;
+  durationMin?: number;
 }
 
 interface MissionListProps {
@@ -66,6 +69,9 @@ export default function MissionList({
         totalActions: total,
         confidenceScore: conf ? conf.score : 70,
         anomalyCount: conf ? conf.anomalyCount : 0,
+        startTime: m.startTime,
+        endTime: m.endTime,
+        durationMin: m.durationMin,
       };
     });
 
@@ -80,7 +86,8 @@ export default function MissionList({
       (m) =>
         m.missionId.toLowerCase().includes(query) ||
         m.config.toLowerCase().includes(query) ||
-        m.reportedStatus.toLowerCase().includes(query)
+        m.reportedStatus.toLowerCase().includes(query) ||
+        (m.startTime && m.startTime.toLowerCase().includes(query))
     );
   }, [missions, search]);
 
@@ -163,9 +170,19 @@ export default function MissionList({
                       : 'hover:bg-orbit-panel/70 text-orbit-text-secondary focus-visible:bg-orbit-panel/90'
                   )}
                 >
-                  {/* Mission ID */}
-                  <td className="py-3 px-3 font-mono font-bold text-orbit-text">
-                    <span className={cn(isSelected ? 'text-blue-300 font-extrabold' : '')}>{m.missionId}</span>
+                  {/* Mission ID & Timestamp */}
+                  <td className="py-2.5 px-3">
+                    <div className="flex flex-col">
+                      <span className={cn('font-mono font-bold text-orbit-text', isSelected ? 'text-blue-300 font-extrabold' : '')}>
+                        {m.missionId}
+                      </span>
+                      {m.startTime && (
+                        <span className="text-[10px] text-orbit-text-muted flex items-center gap-1 font-mono whitespace-nowrap mt-0.5">
+                          <Calendar className="w-2.5 h-2.5 text-slate-500 shrink-0" />
+                          <span>{formatMissionDateTime(m.startTime)}</span>
+                        </span>
+                      )}
+                    </div>
                   </td>
 
                   {/* Config */}
