@@ -199,3 +199,159 @@ export async function fetchActions(): Promise<{
   }
 }
 
+// ── Shift Summaries (issue #15 / AI-2) ──────────────────────────────────────
+
+import type { MissionSummary, ShiftHandoffResponse, ReplayEventResponse } from './summaryTypes';
+export * from './summaryTypes';
+
+/**
+ * Fetches an end-of-mission shift summary for a specific mission.
+ * Returns { data: null, source: 'offline' } if the backend is unreachable.
+ */
+export async function fetchMissionSummary(
+  missionId: string,
+  regenerate = false
+): Promise<{ data: MissionSummary | null; source: 'api' | 'offline' }> {
+  try {
+    const query = regenerate ? '?regenerate=true' : '';
+    const data = await get<MissionSummary>(`/api/missions/${missionId}/summary${query}`);
+    return { data, source: 'api' };
+  } catch (err) {
+    console.warn(`[SPOTSight] Failed to fetch summary for mission ${missionId}:`, err);
+    return { data: null, source: 'offline' };
+  }
+}
+
+/**
+ * Fetches the most recent shift handoff summaries (newest first).
+ * Returns { missions: [], source: 'offline' } if the backend is unreachable.
+ */
+export async function fetchShiftHandoff(
+  limit = 3
+): Promise<{ missions: MissionSummary[]; source: 'api' | 'offline' }> {
+  try {
+    const res = await get<ShiftHandoffResponse>(`/api/shift-handoff?limit=${limit}`);
+    if (Array.isArray(res?.missions)) {
+      return { missions: res.missions, source: 'api' };
+    }
+    return { missions: [], source: 'api' };
+  } catch (err) {
+    console.warn('[SPOTSight] Failed to fetch shift handoff:', err);
+    return { missions: [], source: 'offline' };
+  }
+}
+
+/**
+ * Posts a replay telemetry event to the backend trigger endpoint.
+ */
+export async function postReplayEvent(
+  event: Record<string, unknown>
+): Promise<ReplayEventResponse> {
+  const res = await fetch(`${API_BASE}/api/events/replay`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(event),
+  });
+  if (!res.ok) {
+    throw new Error(`API error ${res.status} on POST /api/events/replay`);
+  }
+  return res.json() as Promise<ReplayEventResponse>;
+}
+
+// ── Predictions & Forecast (issue #16 / AI-3) ──────────────────────────────────
+
+import type {
+  TrendAlertsResponse,
+  TrendBacktestResponse,
+  PredictionModelResponse,
+  MissionForecastResponse,
+} from './predictionsTypes';
+import {
+  predictionsTrendsFixture,
+  predictionsBacktestFixture,
+  predictionsModelFixture,
+} from './predictionsFixture';
+export * from './predictionsTypes';
+
+/**
+ * Fetches active sliding-window wear alerts.
+ * Returns { data, source: 'api' } on success, or { data: predictionsTrendsFixture, source: 'offline' }.
+ */
+export async function fetchTrendAlerts(
+  asOf?: string
+): Promise<{ data: TrendAlertsResponse; source: 'api' | 'offline' }> {
+  try {
+    const query = asOf ? `?as_of=${encodeURIComponent(asOf)}` : '';
+    const data = await get<TrendAlertsResponse>(`/api/predictions/trends${query}`);
+    return { data, source: 'api' };
+  } catch (err) {
+    console.warn('[SPOTSight] Failed to fetch trend alerts, falling back to fixture:', err);
+    return { data: predictionsTrendsFixture, source: 'offline' };
+  }
+}
+
+/**
+ * Fetches the walk-forward wear alerts backtest.
+ * Returns { data, source: 'api' } on success, or { data: predictionsBacktestFixture, source: 'offline' }.
+ */
+export async function fetchTrendBacktest(): Promise<{
+  data: TrendBacktestResponse;
+  source: 'api' | 'offline';
+}> {
+  try {
+    const data = await get<TrendBacktestResponse>('/api/predictions/trends/backtest');
+    return { data, source: 'api' };
+  } catch (err) {
+    console.warn('[SPOTSight] Failed to fetch trend backtest, falling back to fixture:', err);
+    return { data: predictionsBacktestFixture, source: 'offline' };
+  }
+}
+
+/**
+ * Fetches the L2 regularized logistic regression model specs and honest LOO backtest.
+ * Returns { data, source: 'api' } on success, or { data: predictionsModelFixture, source: 'offline' }.
+ */
+export async function fetchPredictionModel(): Promise<{
+  data: PredictionModelResponse;
+  source: 'api' | 'offline';
+}> {
+  try {
+    const data = await get<PredictionModelResponse>('/api/predictions/model');
+    return { data, source: 'api' };
+  } catch (err) {
+    console.warn('[SPOTSight] Failed to fetch prediction model, falling back to fixture:', err);
+    return { data: predictionsModelFixture, source: 'offline' };
+  }
+}
+
+/**
+ * Fetches the pre-mission Risk Forecast for a given mission route.
+ * Supports what-if starting battery (20-100) and configuration override (V1/V2).
+ * Returns { data: null, source: 'offline' } if server is unreachable (no fixture).
+ */
+export async function fetchMissionForecast(
+  missionId: string,
+  startBattery?: number,
+  config?: string
+): Promise<{ data: MissionForecastResponse | null; source: 'api' | 'offline' }> {
+  try {
+    const params = new URLSearchParams();
+    if (startBattery !== undefined) {
+      params.append('start_battery', String(startBattery));
+    }
+    if (config) {
+      params.append('config', config);
+    }
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    const data = await get<MissionForecastResponse>(
+      `/api/predictions/missions/${missionId}/forecast${qs}`
+    );
+    return { data, source: 'api' };
+  } catch (err) {
+    console.warn(`[SPOTSight] Failed to fetch forecast for mission ${missionId}:`, err);
+    return { data: null, source: 'offline' };
+  }
+}
+
+
+

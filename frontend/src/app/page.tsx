@@ -8,6 +8,7 @@ import { triageFixture } from '../lib/triageFixture';
 import { Panel } from '@/components/ui/Panel';
 import { TriageProvider } from '@/context/TriageContext';
 import type { OverlayMode } from '../components/InteractiveFloorPlan';
+import MissionCompleteToast from '@/components/live/MissionCompleteToast';
 
 const InteractiveFloorPlan = dynamic(
   () => import('../components/InteractiveFloorPlan'),
@@ -60,6 +61,7 @@ export default function Home() {
             onOverlayModeChange={setOverlayMode}
             onNodeSelect={handleNodeSelect}
           />
+          <MissionCompleteToast />
         </Panel>
 
         {/* ── Right Column: Triage Queue Sidebar (Expanded to Fill Empty Space) ── */}
