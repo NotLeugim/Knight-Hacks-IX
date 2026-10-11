@@ -102,6 +102,7 @@ async def sse_event_generator(
     delay_seconds: Optional[float] = None,
     loop: bool = False,
     request: Optional[Request] = None,
+    health: bool = False,
 ) -> AsyncGenerator[str, None]:
     """
     Asynchronous SSE generator yielding 'data: <original JSON>\\n\\n'.
@@ -112,6 +113,8 @@ async def sse_event_generator(
     - Yields delay (asyncio.sleep) between events so the event loop is not blocked.
     - Handles client disconnects cleanly via request.is_disconnected().
     - Closes after the last event by default (or loops if loop=True).
+    - If health=True, also emits separate 'event: health' messages with the running
+      Mission Health Score (issue #12). Default messages are unchanged either way.
     """
     delay = delay_seconds if delay_seconds is not None else REPLAY_DELAY_SECONDS
     resolved_path = file_path or get_replay_file_path()
@@ -122,7 +125,15 @@ async def sse_event_generator(
             iteration += 1
             logger.info("Starting replay stream iteration %d from %s", iteration, resolved_path.name)
 
-            for raw_json, _ in iter_replay_events(resolved_path):
+            tracker = None
+            if health:
+                try:
+                    from app.services.health import LiveHealthTracker
+                    tracker = LiveHealthTracker()
+                except Exception as exc:
+                    logger.warning("Live health scores disabled: %s", exc)
+
+            for raw_json, parsed in iter_replay_events(resolved_path):
                 # Clean client disconnect detection
                 if request and await request.is_disconnected():
                     logger.info("Client disconnected from SSE stream.")
@@ -130,6 +141,11 @@ async def sse_event_generator(
 
                 # Format payload according to SSE specification
                 yield f"data: {raw_json}\n\n"
+
+                if tracker is not None:
+                    update = tracker.update(parsed)
+                    if update is not None:
+                        yield f"event: health\ndata: {json.dumps(update)}\n\n"
 
                 if delay > 0:
                     await asyncio.sleep(delay)
