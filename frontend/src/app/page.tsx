@@ -26,7 +26,7 @@ export default function Home() {
 
   // Callback contract for future AI Smart Drawer: logs node ID and action payload
   const handleNodeSelect = useCallback((nodeId: string, payload?: unknown) => {
-    console.log(`[SPOTSight Action Mode] Failing node selected: ${nodeId}`, payload);
+    console.log(`[SPOTCheck Action Mode] Failing node selected: ${nodeId}`, payload);
   }, []);
 
   // Health check and synchronized anomaly data fetch on mount
@@ -39,7 +39,7 @@ export default function Home() {
         }
       })
       .catch((err) => {
-        console.warn('[SPOTSight] Fallback to fixture in parent dashboard:', err);
+        console.warn('[SPOTCheck] Fallback to fixture in parent dashboard:', err);
       });
   }, []);
 

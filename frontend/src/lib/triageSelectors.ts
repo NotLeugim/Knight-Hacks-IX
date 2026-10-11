@@ -1,5 +1,5 @@
 /**
- * triageSelectors.ts — Selectors and normalization helpers for SPOTSight Triage Queue
+ * triageSelectors.ts — Selectors and normalization helpers for SPOTCheck Triage Queue
  * and Map integration.
  *
  * All functions are pure, non-mutating, and preserve original array order.

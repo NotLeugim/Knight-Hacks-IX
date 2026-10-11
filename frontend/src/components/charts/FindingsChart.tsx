@@ -94,7 +94,7 @@ export default function FindingsChart() {
         }
       })
       .catch((err) => {
-        console.warn('[SPOTSight] Unexpected error in fetchAnalytics', err);
+        console.warn('[SPOTCheck] Unexpected error in fetchAnalytics', err);
         if (isMounted) {
           setLoading(false);
         }

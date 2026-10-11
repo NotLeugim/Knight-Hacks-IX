@@ -83,7 +83,7 @@ export function TopBar({
         <Link
           href="/"
           className="flex items-center gap-2.5 group focus:outline-none focus-visible:ring-2 focus-visible:ring-orbit-blue rounded-button p-0.5"
-          aria-label="SPOTSight Home"
+          aria-label="SPOTCheck Home"
         >
           {/* Orbit-style circular sensor/target glyph (~32px) */}
           <div className="w-8 h-8 rounded-full bg-[#1B477D] border border-orbit-blue/40 flex items-center justify-center text-orbit-blue group-hover:border-orbit-blue group-hover:bg-[#20518D] transition-colors shrink-0 shadow-xs">
@@ -102,10 +102,10 @@ export function TopBar({
             </svg>
           </div>
 
-          {/* SPOTSight wordmark (bold ~24px) + TM superscript */}
+          {/* SPOTCheck wordmark (bold ~24px) + TM superscript */}
           <span className="text-[22px] sm:text-[24px] font-bold tracking-tight text-white flex items-center leading-none">
             <span>SPOT</span>
-            <span className="text-[#62A9DB] font-extrabold">Sight</span>
+            <span className="text-[#62A9DB] font-extrabold">Check</span>
             <sup className="text-[10px] font-semibold text-white/50 tracking-normal ml-0.5 select-none -top-2">
               TM
             </sup>

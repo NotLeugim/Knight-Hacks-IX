@@ -1,5 +1,5 @@
 /**
- * analyticsFixture.ts — Local fallback fixture for SPOTSight analytics.
+ * analyticsFixture.ts — Local fallback fixture for SPOTCheck analytics.
  * Source CSVs:
  *   - data/SPOT_KnightHacks_Challenge_Kit Part One/02_DATA/actions.csv
  *   - data/SPOT_KnightHacks_Challenge_Kit Part One/02_DATA/missions.csv
